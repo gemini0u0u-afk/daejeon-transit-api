@@ -10,12 +10,12 @@ app.use(express.json());
 const parser = new xml2js.Parser({ explicitArray: false, trim: true });
 const routeStationCache = {};
 
-// 대전 주요 핵심 노선 공식 마스터 (공공데이터 정규 ID 매핑 - 100% 검증)
+// 대전 주요 핵심 노선 공식 마스터 (공공데이터 정규 ID 매핑)
 const OFFICIAL_ROUTES = [
   { id: '30300072', name: '605', type: 'trunk', origin: '대전대동문', dest: '갈마아파트', desc: '대전대동문 ↔ 갈마아파트' },
-  { id: '30300001', name: '급행1', type: 'express', origin: '원내동', dest: '신안동', desc: '원내동 ↔ 신안동' },
-  { id: '30300002', name: '급행2', type: 'express', origin: '봉산동', dest: '옥계동', desc: '봉산동 ↔ 옥계동' },
-  { id: '30300003', name: '급행3', type: 'express', origin: '원내동', dest: '정부청사', desc: '원내동 ↔ 정부청사' },
+  { id: '30300001', name: '1', type: 'express', origin: '원내동', dest: '신안동', desc: '원내동 ↔ 신안동' },
+  { id: '30300002', name: '2', type: 'express', origin: '봉산동', dest: '옥계동', desc: '봉산동 ↔ 옥계동' },
+  { id: '30300003', name: '3', type: 'express', origin: '원내동', dest: '정부청사', desc: '원내동 ↔ 정부청사' },
   { id: '30300083', name: '703', type: 'trunk', origin: '신탄진', dest: '정림동', desc: '신탄진 ↔ 정림동' },
   { id: '30300057', name: '213', type: 'branch', origin: '원내동', dest: '대한통운', desc: '원내동 ↔ 대한통운' },
   { id: '30300037', name: '102', type: 'trunk', origin: '수통골', dest: '대전역', desc: '수통골 ↔ 대전역' },
@@ -33,7 +33,7 @@ const OFFICIAL_ROUTES = [
   { id: '30300104', name: '911', type: 'branch', origin: '충남대', dest: '대전컨벤션센터', desc: '충남대 ↔ DCC' }
 ];
 
-// 1. 노선 마스터 API (타임아웃 없이 즉시 반환)
+// 1. 노선 마스터 목록 API
 app.get('/api/bus/routes', (req, res) => {
   res.json({
     status: 'success',
@@ -49,7 +49,7 @@ app.get('/api/bus/routes', (req, res) => {
   });
 });
 
-// 2. 노선별 경유 정류소 목록
+// 2. 노선별 경유 정류소 목록 API
 app.get('/api/bus/stations', async (req, res) => {
   const routeId = req.query.routeId || '30300072';
   const serviceKey = (process.env.PUBLIC_SERVICE_KEY || '').trim();
@@ -71,6 +71,7 @@ app.get('/api/bus/stations', async (req, res) => {
       const list = Array.isArray(body.itemList) ? body.itemList : [body.itemList];
       const stations = list.map(item => ({
         stationId: item.BUS_STOP_ID || item.STATION_ID,
+        arsId: item.BUSSTOP_ENG_NM || item.ARS_ID || '',
         stationName: item.BUSSTOP_NM || item.STATION_NM,
         seq: parseInt(item.BUSSTOP_SEQ || item.STATION_SEQ || '0', 10),
         lat: parseFloat(item.GPS_LATI || item.LAT || 0),
@@ -86,7 +87,7 @@ app.get('/api/bus/stations', async (req, res) => {
   }
 });
 
-// 3. 실시간 버스 위치
+// 3. 실시간 버스 주행 위치 API
 app.get('/api/bus/positions', async (req, res) => {
   const routeId = req.query.routeId || '30300072';
   const serviceKey = (process.env.PUBLIC_SERVICE_KEY || '').trim();
@@ -125,28 +126,42 @@ app.get('/api/bus/positions', async (req, res) => {
   }
 });
 
-// 4. 정류소 도착 예정 정보
+// 4. 정류소별 실시간 도착 예정 정보 API (안정화 버전)
 app.get('/api/bus/arrivals', async (req, res) => {
-  const stopId = req.query.stopId;
+  const stopId = (req.query.stopId || '').trim();
   const serviceKey = (process.env.PUBLIC_SERVICE_KEY || '').trim();
-  if (!stopId || !serviceKey) return res.status(400).json({ status: 'error', message: '인자 누락' });
+
+  if (!stopId || !serviceKey) {
+    return res.status(400).json({ status: 'error', message: 'stopId 및 API 키가 필요합니다.' });
+  }
 
   const url = `https://apis.data.go.kr/6300000/arrive/getArrInfoByStopID?serviceKey=${serviceKey}&BusStopID=${stopId}`;
+
   try {
     const response = await axios.get(url, { timeout: 7000 });
     parser.parseString(response.data, (err, result) => {
       if (err) return res.status(500).json({ status: 'error', message: 'XML 파싱 에러' });
 
       const body = result?.ServiceResult?.msgBody;
-      if (!body || !body.itemList) return res.json({ status: 'success', stopId, count: 0, arrivals: [] });
+      if (!body || !body.itemList) {
+        return res.json({ status: 'success', stopId, count: 0, arrivals: [] });
+      }
 
       const list = Array.isArray(body.itemList) ? body.itemList : [body.itemList];
-      const arrivals = list.map(item => ({
-        routeName: item.ROUTE_NO || item.busRouteNm,
-        remainMin: item.EXTIME_MIN || '-',
-        remainStop: item.STATUS_POS || '-'
-      }));
-      res.json({ status: 'success', stopId, count: arrivals.length, arrivals });
+      const arrivals = list.map(item => {
+        const routeNm = item.ROUTE_NO || item.busRouteNm || item.ROUTE_CD || '노선';
+        const minVal = item.EXTIME_MIN || item.predictTime1 || item.remainMin;
+        const stopVal = item.STATUS_POS || item.remainStop || item.EXTIME_SEC;
+
+        return {
+          routeName: routeNm,
+          dest: item.DESTINATION || item.destNm || '',
+          remainMin: minVal ? `${minVal}분` : '곧 도착',
+          remainStop: stopVal ? `${stopVal}번째 전` : '진입 중'
+        };
+      });
+
+      return res.json({ status: 'success', stopId, count: arrivals.length, arrivals });
     });
   } catch (err) {
     res.status(502).json({ status: 'error', message: err.message });
