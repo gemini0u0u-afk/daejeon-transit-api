@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
   <title>대전 실시간 버스 위치 관제 | 대전 시내버스 실시간 노선도</title>
-  <meta name="description" content="대전광역시 시내버스 전 노선 실시간 주행 위치 및 정류소 도착 예정 시간 안내 지도. 급행1, 605, 703, 213 등 대전 버스 실시간 모니터링.">
-  <meta name="keywords" content="대전 버스 실시간, 대전 시내버스 위치, 대전 버스 도착시간, 605번 버스, 급행1번, 703번, 대전 대중교통 지도, 대전 버스 노선도">
+  <meta name="description" content="대전광역시 시내버스 전 노선 실시간 주행 위치, 저상버스 휠체어 표기 및 정류소 도착 예정 시간 안내 지도. 급행1, 605, 703, 102 등 대전 버스 실시간 레이스 관제.">
+  <meta name="keywords" content="대전 버스 실시간, 대전 시내버스 위치, 대전 버스 도착시간, 605번 버스, 급행1번, 703번, 대전 저상버스, 휠체어 버스, 대전 대중교통 지도">
   <link rel="canonical" href="https://daejeon-transit-api.vercel.app/" />
   <meta name="geo.region" content="KR-30" />
   <meta name="geo.placename" content="Daejeon" />
@@ -22,11 +22,11 @@
     /* 상단 슬림 관제 패널 */
     .top-panel {
       position: absolute; top: 12px; left: 12px; z-index: 1000;
-      width: calc(100% - 24px); max-width: 320px;
+      width: calc(100% - 24px); max-width: 330px;
     }
     .panel-card {
-      background: rgba(255, 255, 255, 0.96); padding: 12px 14px;
-      border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.16);
+      background: rgba(255, 255, 255, 0.97); padding: 12px 14px;
+      border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.18);
       backdrop-filter: blur(8px);
     }
     .panel-header-row {
@@ -47,16 +47,35 @@
       box-shadow: 0 0 6px #40c057;
     }
 
-    /* 드롭다운 버튼 */
+    /* ⚡ 킬러 기능 1: 주요 황금 구간 원클릭 묶음 관제 태그 바 */
+    .preset-routes-bar {
+      display: flex; gap: 4px; overflow-x: auto; margin-bottom: 8px; padding-bottom: 2px;
+    }
+    .preset-btn {
+      white-space: nowrap; font-size: 10px; font-weight: 700; padding: 4px 8px;
+      background: #e7f5ff; color: #1971c2; border: 1px solid #a5d8ff;
+      border-radius: 14px; cursor: pointer;
+    }
+    .preset-btn:hover { background: #d0ebff; }
+
+    /* ♿ 킬러 기능 2: 저상버스 전용 필터 체크박스 */
+    .filter-lowbus-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #f8f9fa; padding: 5px 8px; border-radius: 6px;
+      font-size: 11px; font-weight: 700; color: #1971c2; margin-bottom: 8px;
+    }
+    .filter-lowbus-row input { accent-color: #1971c2; cursor: pointer; }
+
+    /* 드롭다운 노선 선택 버튼 */
     .dropdown-btn {
       width: 100%; padding: 8px 12px; background: #f1f3f5; border: 1px solid #ced4da;
-      border-radius: 8px; font-size: 13px; font-weight: 700; color: #333; text-align: left;
+      border-radius: 8px; font-size: 12px; font-weight: 700; color: #333; text-align: left;
       cursor: pointer; display: flex; justify-content: space-between; align-items: center;
     }
     .dropdown-btn:after { content: '▼'; font-size: 10px; color: #666; }
     .dropdown-content {
       display: none; background: #fff; border: 1px solid #dee2e6; border-radius: 8px;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.15); max-height: 220px; overflow-y: auto;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto;
       margin-top: 6px; padding: 6px; flex-direction: column; gap: 4px;
     }
     .dropdown-content.show { display: flex; }
@@ -104,7 +123,7 @@
       font-size: 10px;
       font-weight: 900;
       color: #ffffff;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.82);
       border-radius: 3px;
       padding: 0 1px;
       line-height: 14px;
@@ -112,6 +131,25 @@
       letter-spacing: -0.5px;
       z-index: 10;
       border: 1px solid rgba(255,255,255,0.4);
+    }
+    /* ♿ 버스 마커 우측 상단 휠체어 뱃지 */
+    .lowbus-badge-marker {
+      position: absolute;
+      top: 0px;
+      right: 2px;
+      background: #1971c2;
+      color: #fff;
+      font-size: 9px;
+      font-weight: bold;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      border: 1px solid #fff;
+      z-index: 12;
     }
 
     /* 정류소 핀 */
@@ -122,12 +160,23 @@
     }
     .station-pin:hover { transform: translate(-50%, -50%) scale(1.3); }
 
-    /* 정류소 도착 정보 팝업 */
-    .arrival-popup { min-width: 200px; font-size: 12px; }
+    /* 정류소 도착 정보 팝업 & 🏃 골든타임 신호등 바 */
+    .arrival-popup { min-width: 215px; font-size: 12px; }
     .arrival-title { font-size: 13px; font-weight: 800; color: #111; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 6px; }
+    .gold-time-banner {
+      padding: 5px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .gold-easy { background: #e6fcf5; color: #0ca678; border: 1px solid #b2f2bb; }
+    .gold-warn { background: #fff9db; color: #f59f00; border: 1px solid #ffe066; }
+    .gold-miss { background: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+
     .arr-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 11px; }
     .arr-table th, .arr-table td { padding: 4px 2px; text-align: left; border-bottom: 1px solid #f1f3f5; }
     .arr-time { color: #e03131; font-weight: 800; }
+    .lowbus-tag-table {
+      background: #e7f5ff; color: #1971c2; padding: 1px 4px; border-radius: 3px; font-size: 9px; font-weight: bold; margin-left: 2px;
+    }
   </style>
 </head>
 <body>
@@ -142,6 +191,19 @@
         <span id="vehicleCountLabel">운행 차량: 확인 중...</span>
         <span id="liveSyncStatus"><span class="live-dot"></span><span id="syncTimeText">대기 중</span></span>
       </div>
+
+      <!-- ⚡ 대전 황금 구간 원클릭 묶음 레이스 관제 -->
+      <div class="preset-routes-bar">
+        <button class="preset-btn" onclick="applyPreset(['30300037', '30300040', '30300043'])">⚡ 충남대↔대전역</button>
+        <button class="preset-btn" onclick="applyPreset(['30300041', '30300072'])">⚡ 둔산↔복합터미널</button>
+        <button class="preset-btn" onclick="applyPreset(['30300003', '30300040'])">⚡ 유성↔정부청사</button>
+      </div>
+
+      <!-- ♿ 저상버스 전용 보기 필터 스위치 -->
+      <label class="filter-lowbus-row">
+        <span>♿ 휠체어/유모차 저상버스만 보기</span>
+        <input type="checkbox" id="lowBusOnlyToggle" onchange="toggleLowBusFilter(this.checked)">
+      </label>
 
       <button class="dropdown-btn" id="dropdownToggleBtn" onclick="toggleDropdown()">
         <span id="selectedRouteSummary">관제 노선 선택 (605)</span>
@@ -161,7 +223,7 @@
       <span><b>하행선</b> (점선 · 밝은 색)</span>
     </div>
     <div style="color: #666; font-size: 10px; margin-top: 2px;">
-      * 버스 앞부분의 굵은 1자 라인이 노선을 따라 회전
+      * ♿ 배지: 휠체어 탑승 가능 저상버스
     </div>
   </div>
 
@@ -181,7 +243,16 @@
     const busGroup = L.layerGroup().addTo(map);
 
     const activeBusTracker = {};
-    let isFirstLoad = true; // 최초 접속 즉시 렌더링 플래그
+    let isFirstLoad = true;
+    let filterLowBusOnly = false;
+    let userCurrentLocation = null; // 사용자의 현재 GPS 위치
+
+    // 브라우저 GPS 내 위치 획득 (골든타임 연산용)
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        userCurrentLocation = [pos.coords.latitude, pos.coords.longitude];
+      }, () => {});
+    }
 
     const OFFICIAL_ROUTES = [
       { id: '30300072', name: '605', type: 'trunk', origin: '대전대동문', dest: '갈마아파트' },
@@ -193,6 +264,7 @@
       { id: '30300037', name: '102', type: 'trunk', origin: '수통골', dest: '대전역' },
       { id: '30300040', name: '105', type: 'trunk', origin: '충대농대', dest: '판암지구' },
       { id: '30300041', name: '106', type: 'trunk', origin: '목원대', dest: '비래동' },
+      { id: '30300043', name: '108', type: 'trunk', origin: '충남대', dest: '낭월동' },
       { id: '30300052', name: '201', type: 'trunk', origin: '원내동', dest: '대전역동광장' },
       { id: '30300067', name: '301', type: 'trunk', origin: '봉산동', dest: '오월드' }
     ];
@@ -218,6 +290,19 @@
 
     function toggleDropdown() {
       document.getElementById('dropdownRouteList').classList.toggle('show');
+    }
+
+    // ⚡ 주요 황금 구간 원클릭 묶음 레이스 관제 적용
+    function applyPreset(routeIds) {
+      activeRouteIds.clear();
+      routeIds.forEach(id => activeRouteIds.add(id));
+      initRouteUI();
+      refresh(true);
+    }
+
+    function toggleLowBusFilter(isChecked) {
+      filterLowBusOnly = isChecked;
+      updateVehicles();
     }
 
     function initRouteUI() {
@@ -267,7 +352,16 @@
       return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
     }
 
-    // 도로 선분 상의 최근접 위치 및 인덱스 검색
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
     function getClosestPointOnPolyline(lat, lng, routeId) {
       const segments = routeLineSegments[routeId];
       if (!segments || segments.length === 0) return { point: [lat, lng], index: 0, heading: 0 };
@@ -358,6 +452,7 @@
             const marker = L.marker([s.lat, s.lng], { icon }).addTo(stationGroup);
             bounds.push([s.lat, s.lng]);
 
+            // 정류소 터치 시 실시간 도착 정보 + 🏃 골든타임 신호등 계산
             marker.on('click', async () => {
               const queryStopId = s.stationId || s.arsId;
 
@@ -365,7 +460,7 @@
                 <div class="arrival-popup">
                   <div class="arrival-title">🚏 ${s.stationName}</div>
                   <div style="color:#666; font-size:11px;">방면: ${destTargetName}</div>
-                  <div style="margin-top:6px; color:#1a73e8; font-weight:bold;">실시간 도착 정보 조회 중...</div>
+                  <div style="margin-top:6px; color:#1a73e8; font-weight:bold;">실시간 버스 도착 정보 분석 중...</div>
                 </div>
               `).openPopup();
 
@@ -377,13 +472,32 @@
                 let html = `
                   <div class="arrival-popup">
                     <div class="arrival-title">🚏 ${s.stationName}</div>
-                    <div style="color:#666; font-size:11px;">방면: ${destTargetName} (${isUp ? '상행' : '하행'})</div>
+                    <div style="color:#666; font-size:11px; margin-bottom:6px;">방면: ${destTargetName} (${isUp ? '상행' : '하행'})</div>
                 `;
 
                 if (arrData.status === 'success' && arrData.arrivals && arrData.arrivals.length > 0) {
+                  // 🏃 킬러 기능 3: 도보 골든타임 계산 (보행 속도 4km/h = 분당 약 67m)
+                  if (userCurrentLocation) {
+                    const walkDistKm = getDistance(userCurrentLocation[0], userCurrentLocation[1], s.lat, s.lng);
+                    const walkMin = Math.round((walkDistKm * 1000) / 67);
+                    const fastestBus = arrData.arrivals[0];
+
+                    if (fastestBus && fastestBus.remainMinNum > 0) {
+                      const diff = fastestBus.remainMinNum - walkMin;
+                      if (diff >= 2) {
+                        html += `<div class="gold-time-banner gold-easy">🟢 <b>여유</b>: 도보 ${walkMin}분 거리 (천천히 가셔도 탑승 가능)</div>`;
+                      } else if (diff >= -1) {
+                        html += `<div class="gold-time-banner gold-warn">🟡 <b>주의</b>: 도보 ${walkMin}분 소요! 빠른 걸음으로 이동하세요</div>`;
+                      } else {
+                        html += `<div class="gold-time-banner gold-miss">🔴 <b>놓침 주의</b>: 지금 뛰어도 아슬아슬합니다</div>`;
+                      }
+                    }
+                  }
+
                   html += `<table class="arr-table"><tr><th>노선</th><th>도착 예정</th></tr>`;
                   arrData.arrivals.forEach(a => {
-                    html += `<tr><td><b>${a.routeName}</b></td><td class="arr-time">${a.remainMin} (${a.remainStop})</td></tr>`;
+                    const lowTag = a.isLowBus ? `<span class="lowbus-tag-table">저상 ♿</span>` : '';
+                    html += `<tr><td><b>${a.routeName}</b>${lowTag}</td><td class="arr-time">${a.remainMin} (${a.remainStop})</td></tr>`;
                   });
                   html += `</table>`;
                 } else {
@@ -410,27 +524,24 @@
       return bounds;
     }
 
-    // SVG 그래픽 그룹에 직접 각도 주입
-    function createRotatedTopDownBusSvg(color, rotAngle, busKey) {
+    // ♿ 휠체어 저상버스 차체 SVG 그래픽 (저상버스는 앞머리 포인트 라이트가 Cyan 블루)
+    function createRotatedTopDownBusSvg(color, rotAngle, busKey, isLowBus) {
       const gId = `rot-g-${busKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const headColor = isLowBus ? '#00e5ff' : '#FFD600';
+
       return `
         <svg class="bus-topdown-svg" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
           <g id="${gId}" transform="rotate(${rotAngle}, 22, 22)">
-            <!-- 버스 몸체 (세로 직사각형 - 위쪽이 머리) -->
             <rect x="12" y="5" width="20" height="34" rx="5" fill="${color}" stroke="#ffffff" stroke-width="1.8"/>
-            
-            <!-- ★ 앞머리 굵은 1자 바 -->
+            <!-- 앞머리 굵은 1자 바 -->
             <rect x="13" y="5" width="18" height="4.5" rx="1.5" fill="#111111" stroke="#ffffff" stroke-width="0.8"/>
-            <rect x="18" y="6" width="8" height="2" rx="0.5" fill="#FFD600"/>
-
-            <!-- 전면 유리창 -->
+            <rect x="18" y="6" width="8" height="2" rx="0.5" fill="${headColor}"/>
+            <!-- 전면 윈드실드 -->
             <rect x="14" y="11" width="16" height="5" rx="1.5" fill="#ffffff" opacity="0.85"/>
-            
             <!-- 사이드 미러 -->
             <rect x="9" y="8" width="3" height="4" rx="1" fill="#222222"/>
             <rect x="32" y="8" width="3" height="4" rx="1" fill="#222222"/>
-
-            <!-- 후면 테일램프 -->
+            <!-- 테일램프 -->
             <circle cx="15" cy="37" r="1.3" fill="#E53935"/>
             <circle cx="29" cy="37" r="1.3" fill="#E53935"/>
           </g>
@@ -438,7 +549,6 @@
       `;
     }
 
-    // 도로 궤적을 따라가며 애니메이션 (종료 후에도 마지막 각도 절대 리셋 없이 영구 보존)
     function animateAlongRoadPath(tracker, pathPoints, durationMs = 14000) {
       if (tracker.animFrame) cancelAnimationFrame(tracker.animFrame);
       if (!pathPoints || pathPoints.length < 2) return;
@@ -454,7 +564,6 @@
       }
 
       if (totalDist === 0) return;
-
       const startTime = performance.now();
 
       function step(now) {
@@ -485,7 +594,6 @@
         tracker.currentLng = curLng;
         tracker.marker.setLatLng([curLat, curLng]);
 
-        // 현재 도로 세그먼트의 각도로 머리 회전
         if (p1[0] !== p2[0] || p1[1] !== p2[1]) {
           const roadAngle = calculateBearing(p1[0], p1[1], p2[0], p2[1]);
           tracker.lastHeading = roadAngle;
@@ -497,7 +605,6 @@
         if (progress < 1) {
           tracker.animFrame = requestAnimationFrame(step);
         } else {
-          // 이동 종료 시점: 마지막 주행 각도 유지 (위쪽 0도로 리셋 방지)
           if (tracker.domSvgGroup && tracker.lastHeading !== undefined) {
             tracker.domSvgGroup.setAttribute('transform', `rotate(${tracker.lastHeading}, 22, 22)`);
           }
@@ -523,12 +630,15 @@
             document.getElementById('syncTimeText').textContent = `${data.serverTime || new Date().toLocaleTimeString()} 갱신`;
 
             if (data.vehicles && data.vehicles.length > 0) {
-              totalCount += data.vehicles.length;
               const stations = stationCache[routeId] || [];
               const halfSeq = Math.floor(stations.length / 2) || 40;
               const allSegments = routeLineSegments[routeId] || [];
 
               data.vehicles.forEach((bus, idx) => {
+                // 저상버스 필터 적용 시 일반 버스 건너뛰기
+                if (filterLowBusOnly && !bus.isLowBus) return;
+
+                totalCount++;
                 const busKey = `${routeId}_${bus.plateNo || idx}`;
                 currentKeys.add(busKey);
 
@@ -544,7 +654,6 @@
                 if (activeBusTracker[busKey]) {
                   const tracker = activeBusTracker[busKey];
 
-                  // 최초 로딩이 아닐 때만 14초 보간 주행
                   let roadPath = [];
                   const startInfo = getClosestPointOnPolyline(tracker.currentLat, tracker.currentLng, routeId);
                   const startIdx = startInfo.index;
@@ -564,7 +673,7 @@
 
                   tracker.marker.setPopupContent(`
                     <div style="font-size:12px; line-height:1.5;">
-                      <b style="font-size:13px; color:${markerBg};">${cfg.name}번 버스</b><br>
+                      <b style="font-size:13px; color:${markerBg};">${cfg.name}번 버스 ${bus.isLowBus ? '(♿ 저상)' : ''}</b><br>
                       <b>행선지:</b> ${targetDest} 방면 (${isUp ? '상행' : '하행'})<br>
                       <b>차량번호:</b> ${bus.plateNo}<br>
                       <b>현재 통과:</b> ${bus.stopSeq}번째 정류소<br>
@@ -572,13 +681,15 @@
                     </div>
                   `);
                 } else {
-                  // 신규 마커 생성: 초기 로딩 시 즉시 현재 위치에 배치 및 현재 도로 각도 적용
                   const svgGroupId = `rot-g-${busKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                  const lowBusBadgeHtml = bus.isLowBus ? `<div class="lowbus-badge-marker">♿</div>` : '';
+
                   const busIcon = L.divIcon({
                     className: '',
                     html: `
                       <div class="bus-carrier-wrap">
-                        ${createRotatedTopDownBusSvg(markerBg, roadHeading, busKey)}
+                        ${lowBusBadgeHtml}
+                        ${createRotatedTopDownBusSvg(markerBg, roadHeading, busKey, bus.isLowBus)}
                         <div class="bus-fixed-number">${cfg.name}</div>
                       </div>
                     `,
@@ -588,7 +699,7 @@
                   const marker = L.marker(snapped, { icon: busIcon })
                     .bindPopup(`
                       <div style="font-size:12px; line-height:1.5;">
-                        <b style="font-size:13px; color:${markerBg};">${cfg.name}번 버스</b><br>
+                        <b style="font-size:13px; color:${markerBg};">${cfg.name}번 버스 ${bus.isLowBus ? '(♿ 저상)' : ''}</b><br>
                         <b>행선지:</b> ${targetDest} 방면 (${isUp ? '상행' : '하행'})<br>
                         <b>차량번호:</b> ${bus.plateNo}<br>
                         <b>현재 통과:</b> ${bus.stopSeq}번째 정류소<br>
@@ -624,7 +735,6 @@
         }
       }
 
-      // 첫 로딩 완료 처리
       isFirstLoad = false;
 
       Object.keys(activeBusTracker).forEach(key => {
@@ -646,7 +756,6 @@
       }
     }
 
-    // 1초 카운트다운 인터벌
     setInterval(() => {
       countdown--;
       if (countdown <= 0) {
