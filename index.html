@@ -2,67 +2,14 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-  <!-- SEO 메타태그 (대전 전 지역 랜드마크/대학/병원/노선 검색 키워드 극대화) -->
-  <title>대전 실시간 버스 위치 관제 | 대전 시내버스 실시간 노선도 & 도착 시간 안내</title>
-  <meta name="description" content="대전광역시 전 지역 시내버스 실시간 위치 및 정류소 도착 예정 시간 안내 지도 서비스. 급행1, 급행2, 급행3, 102, 105, 106, 201, 213, 301, 311, 605, 703 등 대전 전 노선 상행·하행 실시간 운행 현황 무료 조회.">
-  <meta name="keywords" content="대전 버스 실시간, 대전 시내버스 위치, 대전 버스 도착시간, 대전 버스 노선도, 대전 급행버스, 급행1번, 급행2번, 급행3번, 대전 605번, 대전 703번, 대전 102번, 대전 201번, 대전 301번, 대전역 버스, 복합터미널 버스, 유성온천역 버스, 둔산동 버스, 정부청사 버스, 타임월드 버스, 충남대 버스, 카이스트 버스, 대전대 버스, 한남대 버스, 목원대 버스, 배재대 버스, 우송대 버스, 충남대병원 버스, 을지대병원 버스, 건양대병원 버스, 대전 대중교통 지도, 실시간 버스 알리미, 대전 버스 위치 추적">
+  <title>대전 실시간 버스 위치 관제 | 대전 시내버스 실시간 노선 지도</title>
+  <meta name="description" content="대전광역시 전 지역 시내버스 실시간 위치 및 도착 예정 시간 지도. 급행, 간선, 지선 버스 상·하행 분리 및 정류소별 실시간 도착 안내.">
+  <meta name="keywords" content="대전 버스 실시간, 대전 시내버스 위치, 대전 버스 도착시간, 대전 급행버스, 605번 버스, 급행1번, 703번, 대전 대중교통 지도">
   <link rel="canonical" href="https://daejeon-transit-api.vercel.app/" />
-
-  <!-- GEO 지역 타겟팅 -->
   <meta name="geo.region" content="KR-30" />
-  <meta name="geo.placename" content="Daejeon, South Korea" />
-  <meta name="geo.position" content="36.3504;127.3845" />
-  <meta name="ICBM" content="36.3504, 127.3845" />
-
-  <!-- SNS Open Graph -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="대전 시내버스 실시간 관제 및 노선도" />
-  <meta property="og:description" content="대전 전 노선 실시간 버스 위치, 상·하행 분기 및 정류소 도착 시간 안내 무료 지도" />
-  <meta property="og:url" content="https://daejeon-transit-api.vercel.app/" />
-
-  <!-- AEO (AI 검색엔진 Perplexity, ChatGPT 등 Schema.org JSON-LD 구조화 데이터) -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "WebApplication",
-        "name": "대전 시내버스 실시간 위치 관제 및 노선 지도",
-        "url": "https://daejeon-transit-api.vercel.app/",
-        "description": "대전광역시 전 지역 시내버스의 실시간 GPS 주행 위치, 상행 및 하행 노선도, 정류소별 실시간 잔여 도착 시간을 제공하는 무료 대중교통 플랫폼",
-        "applicationCategory": "TransportApplication",
-        "operatingSystem": "All",
-        "areaServed": {
-          "@type": "AdministrativeArea",
-          "name": "대전광역시"
-        }
-      },
-      {
-        "@type": "FAQPage",
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": "대전 시내버스 실시간 위치는 어떻게 조회하나요?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "좌측 관제 패널에서 원하는 버스 번호를 검색하거나 체크박스로 다중 선택하면, 지도 위에 실시간 주행 중인 버스의 위치와 상행/하행 실제 종착 정류소 방면이 즉시 표출됩니다."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "정류소별 도착 예정 시간은 어떻게 확인하나요?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "노선 주행 경로선 위의 원형 정류소 핀을 누르면 해당 정류소에 진입하는 모든 버스의 실시간 도착 예정 시간(분)과 남은 정거장 수가 팝업으로 표출됩니다."
-            }
-          }
-        ]
-      }
-    ]
-  }
-  </script>
+  <meta name="geo.placename" content="Daejeon" />
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -72,157 +19,216 @@
     html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", sans-serif; background: #fff; }
     #map { width: 100%; height: 100%; }
 
-    /* 대시보드 컨트롤 패널 */
-    .control-panel {
-      position: absolute; top: 16px; left: 16px; z-index: 1000;
-      background: rgba(255, 255, 255, 0.97); padding: 16px 18px; border-radius: 12px;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.18); backdrop-filter: blur(8px);
-      width: 330px; max-height: 90vh; display: flex; flex-direction: column;
-    }
-    .panel-title { font-size: 16px; font-weight: 800; color: #111; margin-bottom: 2px; }
-    .panel-desc { font-size: 11px; color: #666; margin-bottom: 10px; }
-
-    .summary-box {
-      display: flex; justify-content: space-between; align-items: center;
-      background: #eef2f6; padding: 7px 10px; border-radius: 6px;
-      font-size: 12px; font-weight: 700; margin-bottom: 8px;
+    /* 상단 슬림 관제 패널 */
+    .top-panel {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 1000;
+      width: calc(100% - 24px);
+      max-width: 320px;
     }
 
-    .search-box {
-      width: 100%; padding: 8px 10px; border: 1px solid #ced4da;
-      border-radius: 6px; font-size: 12px; outline: none; margin-bottom: 8px;
+    .panel-card {
+      background: rgba(255, 255, 255, 0.96);
+      padding: 12px 14px;
+      border-radius: 12px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.16);
+      backdrop-filter: blur(8px);
     }
-    .search-box:focus { border-color: #1a73e8; }
 
-    .route-list-wrap {
-      overflow-y: auto; max-height: 250px; display: flex; flex-direction: column;
-      gap: 5px; padding-right: 4px; margin-bottom: 8px;
+    .panel-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
     }
+    .panel-title { font-size: 15px; font-weight: 800; color: #111; }
+    .countdown-tag {
+      font-size: 11px;
+      font-weight: 700;
+      color: #0ca678;
+      background: #e6fcf5;
+      padding: 3px 7px;
+      border-radius: 12px;
+    }
+
+    .vehicle-count { font-size: 12px; color: #495057; font-weight: 600; margin-bottom: 8px; }
+
+    /* 드롭다운 버튼 */
+    .dropdown-btn {
+      width: 100%;
+      padding: 8px 12px;
+      background: #f1f3f5;
+      border: 1px solid #ced4da;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #333;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .dropdown-btn:after {
+      content: '▼';
+      font-size: 10px;
+      color: #666;
+    }
+
+    /* 드롭다운으로 펼쳐지는 노선 체크박스 목록 */
+    .dropdown-content {
+      display: none;
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 6px;
+      padding: 6px;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .dropdown-content.show { display: flex; }
+
     .route-item {
-      display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 6px;
-      background: #fdfdfd; border: 1px solid #e9ecef; font-size: 12px; cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
     }
-    .route-item:hover { background: #e7f5ff; }
+    .route-item:hover { background: #f1f3f5; }
     .route-item input { accent-color: #1a73e8; cursor: pointer; }
-    .route-tag { padding: 2px 6px; font-size: 10px; font-weight: bold; color: #fff; border-radius: 4px; }
+    .route-label-badge {
+      font-weight: bold;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
 
-    /* 버스 종류별 모양 (Shape) */
-    .bus-marker-express {
-      display: inline-flex; align-items: center; gap: 4px; color: #fff;
-      font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 4px;
-      transform: translate(-50%, -50%); border: 2.5px solid #fff;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.4); white-space: nowrap; cursor: pointer;
+    /* 왼쪽 아래 단일 방향 안내 범례 (모바일 방해 최소화) */
+    .bottom-legend {
+      position: absolute;
+      bottom: 16px;
+      left: 12px;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.92);
+      padding: 8px 12px;
+      border-radius: 8px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+      backdrop-filter: blur(4px);
+      font-size: 11px;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
     }
-    .bus-marker-trunk {
-      display: inline-flex; align-items: center; gap: 4px; color: #fff;
-      font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 12px;
-      transform: translate(-50%, -50%); border: 2px solid #fff;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.35); white-space: nowrap; cursor: pointer;
-    }
-    .bus-marker-branch {
-      display: inline-flex; align-items: center; gap: 4px; color: #fff;
-      font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
-      transform: translate(-50%, -50%); border: 2px dashed #fff;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.35); white-space: nowrap; cursor: pointer;
-    }
-    .bus-dir { font-size: 9px; padding: 1px 4px; border-radius: 3px; background: rgba(0,0,0,0.3); }
+    .legend-line-row { display: flex; align-items: center; gap: 6px; }
+    .legend-bar-solid { width: 16px; height: 4px; background: #1a73e8; border-radius: 2px; }
+    .legend-bar-dash { width: 16px; height: 0; border-top: 3px dashed #00acc1; }
 
+    /* 소형화된 버스 마커 (아이콘 안에 숫자만 표기) */
+    .mini-bus-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 11px;
+      border: 2px solid #ffffff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      transform: translate(-50%, -50%);
+    }
+
+    /* 종류별 형태: 급행(각진 사각/다이아), 간선(원형), 지선(타원) */
+    .shape-express {
+      width: 32px;
+      height: 24px;
+      border-radius: 5px;
+    }
+    .shape-trunk {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+    }
+    .shape-branch {
+      padding: 2px 8px;
+      height: 24px;
+      border-radius: 12px;
+    }
+
+    /* 정류장 핀 */
     .station-pin {
-      width: 11px; height: 11px; border-radius: 50%; border: 2px solid #fff;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.4); cursor: pointer; transform: translate(-50%, -50%);
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1.5px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+      cursor: pointer;
+      transform: translate(-50%, -50%);
     }
 
+    /* 도착정보 팝업 */
     .arr-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11px; }
     .arr-table th, .arr-table td { padding: 4px 2px; text-align: left; border-bottom: 1px solid #eee; }
     .arr-time { color: #d9251b; font-weight: bold; }
-
-    /* 서비스 안내 모달 팝업 */
-    .modal-overlay {
-      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.55); z-index: 2000; align-items: center; justify-content: center;
-      padding: 16px; backdrop-filter: blur(3px);
-    }
-    .modal-box {
-      background: #fff; max-width: 600px; width: 100%; max-height: 85vh; border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden;
-    }
-    .modal-header {
-      padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;
-    }
-    .modal-header h2 { font-size: 17px; font-weight: 800; color: #111; }
-    .close-btn { background: none; border: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #777; }
-    .modal-body { padding: 20px; overflow-y: auto; line-height: 1.6; font-size: 13px; color: #444; }
-    .modal-faq-item { background: #f8f9fa; border: 1px solid #eaeaea; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-    .modal-faq-item h4 { font-size: 13px; font-weight: 700; color: #1a73e8; margin-bottom: 4px; }
-    .modal-faq-item p { margin: 0; font-size: 12px; color: #555; }
   </style>
 </head>
 <body>
 
-  <div class="control-panel">
-    <div class="panel-title">대전 버스 실시간 다중 관제</div>
-    <div class="panel-desc">전체 노선 지원 & 실제 정거장명 표출</div>
+  <!-- 좌측 상단 컨트롤러 (드롭다운 체크박스) -->
+  <div class="top-panel">
+    <div class="panel-card">
+      <div class="panel-header-row">
+        <div class="panel-title">대전 실시간 버스 관제</div>
+        <div class="countdown-tag" id="countdownLabel">● 15초 후 갱신</div>
+      </div>
+      <div class="vehicle-count" id="vehicleCountLabel">운행 차량: 확인 중...</div>
 
-    <div class="summary-box">
-      <span id="vehicle-count-label">노선 로드 중...</span>
-      <span style="color:#0ca678; font-size:10px;">● 15초 갱신</span>
-    </div>
-
-    <input type="text" class="search-box" id="routeSearchInput" placeholder="노선 검색 (예: 605, 급행1, 102)" oninput="filterRouteList(this.value)">
-
-    <div class="route-list-wrap" id="routeList"></div>
-
-    <div style="font-size:11px; color:#666; border-top:1px solid #eee; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
-      <span>◆ 급행 | ■ 간선 | ● 지선</span>
-      <button onclick="openModal()" style="background:none; border:none; color:#1a73e8; font-size:11px; font-weight:bold; cursor:pointer;">
-        서비스 안내 & FAQ ⓘ
+      <button class="dropdown-btn" id="dropdownToggleBtn" onclick="toggleDropdown()">
+        <span id="selectedRouteSummary">관제 노선 선택 (605)</span>
       </button>
+
+      <div class="dropdown-content" id="dropdownRouteList">
+        <!-- 노선 체크박스 목록 주입 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 왼쪽 아래 단일 방향 안내 범례 -->
+  <div class="bottom-legend">
+    <div class="legend-line-row">
+      <div class="legend-bar-solid"></div>
+      <span><b>상행선</b> (실선 · 진한 색)</span>
+    </div>
+    <div class="legend-line-row">
+      <div class="legend-bar-dash"></div>
+      <span><b>하행선</b> (점선 · 밝은 색)</span>
+    </div>
+    <div style="color: #666; font-size: 10px; margin-top: 2px;">
+      * 정류소 핀 클릭 시 도착 시간 표출
     </div>
   </div>
 
   <div id="map"></div>
 
-  <!-- 서비스 안내 & FAQ 팝업 모달 -->
-  <div class="modal-overlay" id="infoModal">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h2>대전 대중교통 실시간 관제 안내</h2>
-        <button class="close-btn" onclick="closeModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p style="margin-bottom: 14px;">
-          본 서비스는 대전광역시 시내버스의 실시간 주행 위치와 정류소별 도착 예정 정보를 디지털 지도 위에 직관적으로 표출하는 무료 시민 편의 플랫폼입니다.
-        </p>
-
-        <div class="modal-faq-item">
-          <h4>Q. 상행과 하행은 어떻게 표기되나요?</h4>
-          <p>단순한 '상/하행' 대신, 현재 버스가 실제로 향하고 있는 <b>실제 종점 정거장 이름</b>(예: ▲ 갈마아파트행, ▼ 대전대동문행)으로 명확히 표기됩니다.</p>
-        </div>
-
-        <div class="modal-faq-item">
-          <h4>Q. 버스 정류소 도착 시간은 어떻게 확인하나요?</h4>
-          <p>도로 위에 표시된 노선별 <b>원형 정류소 핀</b>을 클릭하면 해당 정류소에 진입 예정인 버스들의 실시간 도착 잔여 시간(분)과 남은 정거장 수가 즉시 표출됩니다.</p>
-        </div>
-
-        <div class="modal-faq-item">
-          <h4>Q. 버스 모양과 색상이 다른 이유는 무엇인가요?</h4>
-          <p>급행버스는 다이아몬드형(◆), 간선버스는 라운드 사각형(■), 지선버스는 타원형(●)으로 구분되며, 동일한 유형이라도 노선 번호마다 서로 다른 고유 색상이 배정되어 여러 대가 겹쳐도 쉽게 구별할 수 있습니다.</p>
-        </div>
-
-        <div class="modal-faq-item">
-          <h4>Q. 복수 노선 동시 관제가 가능한가요?</h4>
-          <p>네, 좌측 목록에서 605번, 703번, 급행1번 등 원하는 버스를 중복 체크하여 한 화면에서 동시에 비교 관제할 수 있습니다.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <script>
+    // 확대/축소 버튼을 오른쪽 아래(bottomright)로 배치하여 겹침 차단
     const map = L.map('map', { zoomControl: false }).setView([36.3504, 127.3845], 12);
-    L.control.zoom({ position: 'topright' }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     L.tileLayer('https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png', {
-      attribution: '&copy; VWorld 국가공간정보',
+      attribution: '&copy; VWorld',
       maxZoom: 19
     }).addTo(map);
 
@@ -230,82 +236,99 @@
     const stationGroup = L.layerGroup().addTo(map);
     const busGroup = L.layerGroup().addTo(map);
 
-    let ALL_ROUTES = [
-      { id: '30300072', name: '605', type: 'trunk', originName: '대전대동문', destName: '갈마아파트', desc: '대전대동문 ↔ 갈마아파트' },
-      { id: '30300001', name: '급행1', type: 'express', originName: '원내동', destName: '신안동', desc: '원내동 ↔ 신안동' },
-      { id: '30300002', name: '급행2', type: 'express', originName: '봉산동', destName: '옥계동', desc: '봉산동 ↔ 옥계동' },
-      { id: '30300003', name: '급행3', type: 'express', originName: '원내동', destName: '정부청사', desc: '원내동 ↔ 정부청사' },
-      { id: '30300083', name: '703', type: 'trunk', originName: '신탄진', destName: '정림동', desc: '신탄진 ↔ 정림동' },
-      { id: '30300057', name: '213', type: 'branch', originName: '원내동', destName: '대한통운', desc: '원내동 ↔ 대한통운' },
-      { id: '30300037', name: '102', type: 'trunk', originName: '수통골', destName: '대전역', desc: '수통골 ↔ 대전역' },
-      { id: '30300040', name: '105', type: 'trunk', originName: '충대농대', destName: '판암지구', desc: '충대농대 ↔ 판암지구' },
-      { id: '30300052', name: '201', type: 'trunk', originName: '원내동', destName: '대전역동광장', desc: '원내동 ↔ 대전역동광장' },
-      { id: '30300067', name: '301', type: 'trunk', originName: '봉산동', destName: '오월드', desc: '봉산동 ↔ 오월드' }
+    // 대전 주요 공식 노선 풀
+    const OFFICIAL_ROUTES = [
+      { id: '30300072', name: '605', type: 'trunk', origin: '대전대동문', dest: '갈마아파트' },
+      { id: '30300001', name: '1', type: 'express', origin: '원내동', dest: '신안동' },
+      { id: '30300002', name: '2', type: 'express', origin: '봉산동', dest: '옥계동' },
+      { id: '30300003', name: '3', type: 'express', origin: '원내동', dest: '정부청사' },
+      { id: '30300083', name: '703', type: 'trunk', origin: '신탄진', dest: '정림동' },
+      { id: '30300057', name: '213', type: 'branch', origin: '원내동', dest: '대한통운' },
+      { id: '30300037', name: '102', type: 'trunk', origin: '수통골', dest: '대전역' },
+      { id: '30300040', name: '105', type: 'trunk', origin: '충대농대', dest: '판암지구' },
+      { id: '30300041', name: '106', type: 'trunk', origin: '목원대', dest: '비래동' },
+      { id: '30300043', name: '108', type: 'trunk', origin: '충남대', dest: '낭월동' },
+      { id: '30300052', name: '201', type: 'trunk', origin: '원내동', dest: '대전역동광장' },
+      { id: '30300067', name: '301', type: 'trunk', origin: '봉산동', dest: '오월드' },
+      { id: '30300070', name: '311', type: 'trunk', origin: '신대공영', dest: '오월드' },
+      { id: '30300076', name: '606', type: 'trunk', origin: '판암지구', dest: '충남대' },
+      { id: '30300084', name: '704', type: 'trunk', origin: '원내동', dest: '보령해양' },
+      { id: '30300094', name: '802', type: 'trunk', origin: '봉산동', dest: '산성동' },
+      { id: '30300062', name: '216', type: 'branch', origin: '원내동', dest: '시청' },
+      { id: '30300078', name: '613', type: 'branch', origin: '비래동', dest: '갈마아파트' },
+      { id: '30300104', name: '911', type: 'branch', origin: '충남대', dest: 'DCC' }
     ];
 
-    const activeRouteIds = new Set(['30300072']); // 기본 605번
+    const activeRouteIds = new Set(['30300072']); // 기본 605번 선택
     const stationCache = {};
     const routeLineSegments = {};
     const lastBusPositions = {};
+    let countdown = 15;
 
+    // 노선 번호별 고유 색상 생성기
     function getRouteColor(name, type, isDown = false) {
       if (type === 'express') {
-        if (name === '급행1') return isDown ? '#ff6b6b' : '#c92a2a';
-        if (name === '급행2') return isDown ? '#ffa94d' : '#d9480f';
+        if (name === '1' || name === '급행1') return isDown ? '#ff6b6b' : '#c92a2a';
+        if (name === '2' || name === '급행2') return isDown ? '#ffa94d' : '#d9480f';
         return isDown ? '#f06595' : '#a61e4d';
       }
       let hash = 0;
-      for (let i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
-      }
+      for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
       const hue = Math.abs(hash % 360);
       const sat = type === 'branch' ? 65 : 75;
       const light = isDown ? 62 : 40;
       return `hsl(${hue}, ${sat}%, ${light}%)`;
     }
 
-    async function loadMasterRoutes() {
-      try {
-        const res = await fetch('/api/bus/routes');
-        const data = await res.json();
-        if (data.status === 'success' && data.routes?.length > 0) {
-          ALL_ROUTES = data.routes;
-        }
-      } catch (e) {}
-      renderRouteListUI(ALL_ROUTES);
-      refresh(true);
+    // 드롭다운 토글
+    function toggleDropdown() {
+      const list = document.getElementById('dropdownRouteList');
+      list.classList.toggle('show');
     }
 
-    function renderRouteListUI(routes) {
-      const container = document.getElementById('routeList');
+    // 노선 UI 렌더링
+    function initRouteUI() {
+      const container = document.getElementById('dropdownRouteList');
       container.innerHTML = '';
 
-      routes.forEach(r => {
+      OFFICIAL_ROUTES.forEach(r => {
         const item = document.createElement('label');
         item.className = 'route-item';
+
+        const typeLabel = r.type === 'express' ? '[급행]' : (r.type === 'branch' ? '[지선]' : '[간선]');
         const color = getRouteColor(r.name, r.type, false);
 
         item.innerHTML = `
           <input type="checkbox" value="${r.id}" ${activeRouteIds.has(r.id) ? 'checked' : ''} onchange="toggleRoute('${r.id}', this.checked)">
-          <span class="route-tag" style="background:${color};">${r.name}</span>
-          <span style="font-weight:600; color:#333;">${r.desc}</span>
+          <span class="route-label-badge" style="background:${color};">${typeLabel} ${r.name}</span>
+          <span style="color:#555;">${r.origin} ↔ ${r.dest}</span>
         `;
         container.appendChild(item);
       });
-    }
-
-    function filterRouteList(keyword) {
-      const q = keyword.trim().toLowerCase();
-      const filtered = ALL_ROUTES.filter(r => r.name.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q));
-      renderRouteListUI(filtered);
+      updateSelectedSummary();
     }
 
     function toggleRoute(routeId, isChecked) {
       if (isChecked) activeRouteIds.add(routeId);
       else activeRouteIds.delete(routeId);
+      updateSelectedSummary();
       refresh(true);
     }
 
+    function updateSelectedSummary() {
+      const names = [];
+      OFFICIAL_ROUTES.forEach(r => {
+        if (activeRouteIds.has(r.id)) {
+          const typePrefix = r.type === 'express' ? '급행' : '';
+          names.push(`${typePrefix}${r.name}`);
+        }
+      });
+      document.getElementById('selectedRouteSummary').textContent = names.length > 0 
+        ? `관제 중: ${names.join(', ')}`
+        : '노선을 선택해 주세요';
+    }
+
+    // 도로 선분 스냅 (착 달라붙게 보정)
     function snapToPolyline(lat, lng, routeId) {
       const segments = routeLineSegments[routeId];
       if (!segments || segments.length === 0) return [lat, lng];
@@ -336,13 +359,14 @@
       return [lat, lng];
     }
 
+    // 노선선 및 정류장 핀 그리기
     async function drawRoutes() {
       lineGroup.clearLayers();
       stationGroup.clearLayers();
       const bounds = [];
 
       for (const routeId of activeRouteIds) {
-        const cfg = ALL_ROUTES.find(r => r.id === routeId);
+        const cfg = OFFICIAL_ROUTES.find(r => r.id === routeId);
         if (!cfg) continue;
 
         let stations = stationCache[routeId];
@@ -370,18 +394,18 @@
           const upColor = getRouteColor(cfg.name, cfg.type, false);
           const downColor = getRouteColor(cfg.name, cfg.type, true);
 
-          // 상행선 (실선)
+          // 상행 실선, 하행 점선
           L.polyline(upCoords, { color: upColor, weight: 5, opacity: 0.85, lineJoin: 'round' }).addTo(lineGroup);
-          // 하행선 (점선)
           L.polyline(downCoords, { color: downColor, weight: 4, dashArray: '7, 7', opacity: 0.9, lineJoin: 'round' }).addTo(lineGroup);
 
           const createPin = (s, isUp) => {
             const color = isUp ? upColor : downColor;
-            const destTargetName = isUp ? cfg.destName : cfg.originName;
+            const destTargetName = isUp ? cfg.dest : cfg.origin;
+
             const icon = L.divIcon({
               className: '',
               html: `<div class="station-pin" style="background:${color};"></div>`,
-              iconSize: [11, 11]
+              iconSize: [10, 10]
             });
 
             const marker = L.marker([s.lat, s.lng], { icon }).addTo(stationGroup);
@@ -428,12 +452,13 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
+    // 소형화된 버스 마커 (아이콘 안에 숫자만 표기)
     async function updateVehicles() {
       busGroup.clearLayers();
       let totalCount = 0;
 
       for (const routeId of activeRouteIds) {
-        const cfg = ALL_ROUTES.find(r => r.id === routeId);
+        const cfg = OFFICIAL_ROUTES.find(r => r.id === routeId);
         if (!cfg) continue;
 
         try {
@@ -468,34 +493,28 @@
 
               const snapped = snapToPolyline(bus.lat, bus.lng, routeId);
               const markerBg = getRouteColor(cfg.name, cfg.type, !isUp);
-              
-              // '종점' 대신 실제 정거장 이름 바인딩
-              const actualTargetName = isUp ? (cfg.destName || '종점') : (cfg.originName || '기점');
-              const dirLabel = isUp ? `▲ ${actualTargetName}행` : `▼ ${actualTargetName}행`;
+              const targetDest = isUp ? cfg.dest : cfg.origin;
 
-              let shapeClass = 'bus-marker-trunk';
-              if (cfg.type === 'express') shapeClass = 'bus-marker-express';
-              else if (cfg.type === 'branch') shapeClass = 'bus-marker-branch';
+              // 종류별 콤팩트 모양 클래스
+              let shapeClass = 'shape-trunk';
+              if (cfg.type === 'express') shapeClass = 'shape-express';
+              else if (cfg.type === 'branch') shapeClass = 'shape-branch';
 
+              // 아이콘 안에 버스 번호만 깔끔하게 표기
               const icon = L.divIcon({
                 className: '',
-                html: `
-                  <div class="${shapeClass}" style="background:${markerBg};">
-                    <span>🚌 ${cfg.name}</span>
-                    <span class="bus-dir">${dirLabel}</span>
-                  </div>
-                `,
+                html: `<div class="mini-bus-icon ${shapeClass}" style="background:${markerBg};">${cfg.name}</div>`,
                 iconSize: [0, 0]
               });
 
               L.marker(snapped, { icon })
                 .bindPopup(`
                   <div style="font-size:12px; line-height:1.5;">
-                    <b style="font-size:13px; color:${markerBg};">${cfg.name}번 (${dirLabel})</b><br>
-                    <b>운행 구간:</b> ${cfg.desc}<br>
+                    <b style="font-size:13px; color:${markerBg};">${cfg.name}번 버스</b><br>
+                    <b>행선지:</b> ${targetDest} 방면 (${isUp ? '상행' : '하행'})<br>
                     <b>차량번호:</b> ${bus.plateNo}<br>
-                    <b>현재 정류소:</b> ${bus.stopSeq}번째 통과 중<br>
-                    <b>업데이트:</b> ${new Date(bus.updatedAt).toLocaleTimeString()}
+                    <b>현재 위치:</b> ${bus.stopSeq}번째 정류소 통과 중<br>
+                    <b>수신:</b> ${new Date(bus.updatedAt).toLocaleTimeString()}
                   </div>
                 `)
                 .addTo(busGroup);
@@ -504,7 +523,7 @@
         } catch(e) {}
       }
 
-      document.getElementById('vehicle-count-label').textContent = `운행 중: 총 ${totalCount}대`;
+      document.getElementById('vehicleCountLabel').textContent = `운행 차량: 총 ${totalCount}대`;
     }
 
     async function refresh(autoFit = false) {
@@ -515,15 +534,31 @@
       }
     }
 
-    // 모달 열기/닫기
-    function openModal() { document.getElementById('infoModal').style.display = 'flex'; }
-    function closeModal() { document.getElementById('infoModal').style.display = 'none'; }
-    window.onclick = function(e) {
-      if (e.target === document.getElementById('infoModal')) closeModal();
-    }
+    // 1초 카운트다운 인터벌
+    setInterval(() => {
+      countdown--;
+      if (countdown <= 0) {
+        countdown = 15;
+        document.getElementById('countdownLabel').textContent = '● 갱신 중...';
+        updateVehicles().then(() => {
+          document.getElementById('countdownLabel').textContent = `● 15초 후 갱신`;
+        });
+      } else {
+        document.getElementById('countdownLabel').textContent = `● ${countdown}초 후 갱신`;
+      }
+    }, 1000);
 
-    loadMasterRoutes();
-    setInterval(updateVehicles, 15000);
+    // 팝업 외부 터치 시 드롭다운 닫기
+    window.addEventListener('click', (e) => {
+      const dropdown = document.getElementById('dropdownRouteList');
+      const toggleBtn = document.getElementById('dropdownToggleBtn');
+      if (!toggleBtn.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.remove('show');
+      }
+    });
+
+    initRouteUI();
+    refresh(true);
   </script>
 </body>
 </html>
