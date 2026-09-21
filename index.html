@@ -22,7 +22,7 @@
     /* 상단 슬림 관제 패널 */
     .top-panel {
       position: absolute; top: 12px; left: 12px; z-index: 1000;
-      width: calc(100% - 24px); max-width: 310px;
+      width: calc(100% - 24px); max-width: 320px;
     }
     .panel-card {
       background: rgba(255, 255, 255, 0.96); padding: 12px 14px;
@@ -37,7 +37,15 @@
       font-size: 11px; font-weight: 700; color: #0ca678; background: #e6fcf5;
       padding: 3px 8px; border-radius: 12px;
     }
-    .vehicle-count { font-size: 12px; color: #495057; font-weight: 600; margin-bottom: 8px; }
+    .status-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; color: #495057; font-weight: 600; margin-bottom: 8px;
+    }
+    .live-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: #40c057; margin-right: 4px; vertical-align: middle;
+      box-shadow: 0 0 6px #40c057;
+    }
 
     /* 드롭다운 버튼 */
     .dropdown-btn {
@@ -62,7 +70,7 @@
       font-weight: bold; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px;
     }
 
-    /* 좌측 하단 상·하행 범례 */
+    /* 좌측 하단 범례 */
     .bottom-legend {
       position: absolute; bottom: 16px; left: 12px; z-index: 1000;
       background: rgba(255, 255, 255, 0.94); padding: 8px 12px; border-radius: 8px;
@@ -73,19 +81,25 @@
     .legend-bar-solid { width: 16px; height: 4px; background: #1a73e8; border-radius: 2px; }
     .legend-bar-dash { width: 16px; height: 0; border-top: 3px dashed #00acc1; }
 
-    /* 버스 측면(Side View) 실루엣 아이콘 & 부드러운 위치 이동 트랜지션 */
-    .bus-side-container {
-      position: relative;
-      width: 52px;
+    /* 버스 진행 방향(머리) 자동 회전 마커 컨테이너 */
+    .bus-carrier-wrap {
+      width: 54px;
       height: 28px;
-      cursor: pointer;
       transform: translate(-50%, -50%);
-      transition: transform 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+      cursor: pointer;
+      position: relative;
+    }
+    .bus-body-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transition: transform 0.4s ease;
+      transform-origin: center center;
     }
     .bus-side-svg {
       width: 100%;
       height: 100%;
-      filter: drop-shadow(0px 3px 4px rgba(0, 0, 0, 0.4));
+      filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.45));
     }
     .bus-side-text {
       position: absolute;
@@ -96,7 +110,7 @@
       font-size: 11px;
       font-weight: 900;
       color: #ffffff;
-      background: rgba(0, 0, 0, 0.55);
+      background: rgba(0, 0, 0, 0.6);
       border-radius: 3px;
       padding: 0 2px;
       line-height: 13px;
@@ -113,7 +127,7 @@
     .station-pin:hover { transform: translate(-50%, -50%) scale(1.3); }
 
     /* 정류소 도착 정보 팝업 */
-    .arrival-popup { min-width: 190px; font-size: 12px; }
+    .arrival-popup { min-width: 200px; font-size: 12px; }
     .arrival-title { font-size: 13px; font-weight: 800; color: #111; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 6px; }
     .arr-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 11px; }
     .arr-table th, .arr-table td { padding: 4px 2px; text-align: left; border-bottom: 1px solid #f1f3f5; }
@@ -128,7 +142,10 @@
         <div class="panel-title">대전 실시간 버스 관제</div>
         <div class="countdown-tag" id="countdownLabel">● 15초 후 갱신</div>
       </div>
-      <div class="vehicle-count" id="vehicleCountLabel">운행 차량: 확인 중...</div>
+      <div class="status-row">
+        <span id="vehicleCountLabel">운행 차량: 확인 중...</span>
+        <span id="liveSyncStatus"><span class="live-dot"></span><span id="syncTimeText">대기 중</span></span>
+      </div>
 
       <button class="dropdown-btn" id="dropdownToggleBtn" onclick="toggleDropdown()">
         <span id="selectedRouteSummary">관제 노선 선택 (605)</span>
@@ -148,7 +165,7 @@
       <span><b>하행선</b> (점선 · 밝은 색)</span>
     </div>
     <div style="color: #666; font-size: 10px; margin-top: 2px;">
-      * 정류소 핀 터치 시 도착 시간 표출
+      * 정류소 핀 터치 시 실시간 도착 시간 표출
     </div>
   </div>
 
@@ -167,8 +184,8 @@
     const stationGroup = L.layerGroup().addTo(map);
     const busGroup = L.layerGroup().addTo(map);
 
-    // 깜빡임 방지를 위한 마커 객체 풀
-    const activeBusMarkers = {};
+    // 차량 애니메이션 인스턴스 관리 객체
+    const activeBusTracker = {};
 
     const OFFICIAL_ROUTES = [
       { id: '30300072', name: '605', type: 'trunk', origin: '대전대동문', dest: '갈마아파트' },
@@ -187,7 +204,6 @@
     const activeRouteIds = new Set(['30300072']); // 기본 605번
     const stationCache = {};
     const routeLineSegments = {};
-    const lastBusPositions = {};
     let countdown = 15;
 
     function getRouteColor(name, type, isDown = false) {
@@ -329,6 +345,8 @@
             bounds.push([s.lat, s.lng]);
 
             marker.on('click', async () => {
+              const queryStopId = s.stationId || s.arsId;
+
               marker.bindPopup(`
                 <div class="arrival-popup">
                   <div class="arrival-title">🚏 ${s.stationName}</div>
@@ -338,9 +356,8 @@
               `).openPopup();
 
               try {
-                // 7자리 식별자 우선, fallback arsId
-                const queryId = s.stationId || s.arsId;
-                const arrRes = await fetch(`/api/bus/arrivals?stopId=${queryId}`);
+                if (!queryStopId) throw new Error('정류소 ID 없음');
+                const arrRes = await fetch(`/api/bus/arrivals?stopId=${encodeURIComponent(queryStopId)}`);
                 const arrData = await arrRes.json();
 
                 let html = `
@@ -364,7 +381,7 @@
                 marker.setPopupContent(`
                   <div class="arrival-popup">
                     <div class="arrival-title">🚏 ${s.stationName}</div>
-                    <div style="color:#e03131; font-size:11px;">도착 정보 수신 지연</div>
+                    <div style="color:#e03131; font-size:11px;">도착 정보를 불러오지 못했습니다.</div>
                   </div>
                 `);
               }
@@ -379,31 +396,17 @@
       return bounds;
     }
 
-    function getDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon/2) * Math.sin(dLon/2);
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    }
-
-    // 버스 측면(Side View) 실루엣 SVG 생성기
+    // 버스 측면 SVG 생성기 (기본 우측 방향 머리)
     function createSideBusSvg(color) {
       return `
         <svg class="bus-side-svg" viewBox="0 0 52 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- 버스 차체 본체 (측면) -->
           <path d="M2 18V8C2 5.5 4 4 7 4H45C48 4 50 6 50 9V18C50 19 49 20 48 20H45C45 18 43 16 40 16C37 16 35 18 35 20H17C17 18 15 16 12 16C9 16 7 18 7 20H3C2.5 20 2 19 2 18Z" fill="${color}" stroke="#ffffff" stroke-width="1.5"/>
-          <!-- 앞/옆 창문들 -->
           <rect x="5" y="6" width="6" height="7" rx="1" fill="#ffffff" opacity="0.95"/>
           <rect x="13" y="6" width="7" height="7" rx="1" fill="#ffffff" opacity="0.95"/>
           <rect x="22" y="6" width="7" height="7" rx="1" fill="#ffffff" opacity="0.95"/>
           <rect x="31" y="6" width="7" height="7" rx="1" fill="#ffffff" opacity="0.95"/>
           <path d="M40 6H45C47 6 48 7.5 48 9.5V13H40V6Z" fill="#ffffff" opacity="0.95"/>
-          <!-- 앞 헤드라이트 -->
           <circle cx="49" cy="16" r="1.5" fill="#FFF176"/>
-          <!-- 바퀴 2개 -->
           <circle cx="12" cy="20" r="3.5" fill="#212529" stroke="#ffffff" stroke-width="1"/>
           <circle cx="12" cy="20" r="1.2" fill="#ced4da"/>
           <circle cx="40" cy="20" r="3.5" fill="#212529" stroke="#ffffff" stroke-width="1"/>
@@ -412,7 +415,54 @@
       `;
     }
 
-    // 버스 깜빡임 없는 연속 부드러운 위치 이동
+    // 15초 동안 목적지까지 부드럽게 미끄러지듯 주행하는 선형 보간(Lerp) 애니메이터
+    function animateBusMotion(tracker, targetLat, targetLng, targetHeading, durationMs = 14000) {
+      if (tracker.animFrame) cancelAnimationFrame(tracker.animFrame);
+
+      const startLat = tracker.currentLat;
+      const startLng = tracker.currentLng;
+      const startTime = performance.now();
+
+      // 머리 회전 각도(좌/우 반전 Flip) 적용
+      if (tracker.domInner) {
+        // 서쪽(좌측) 진행 시 좌우 반전, 동쪽(우측) 진행 시 정방향
+        const isWestBound = (targetHeading > 180 && targetHeading < 360) || (targetLng < startLng);
+        tracker.domInner.style.transform = isWestBound ? 'scaleX(-1)' : 'scaleX(1)';
+      }
+
+      function step(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / durationMs);
+
+        // 부드러운 완화(EaseInOut) 곡선 적용
+        const easeProgress = progress < 0.5 
+          ? 2 * progress * progress 
+          : -1 + (4 - 2 * progress) * progress;
+
+        const curLat = startLat + (targetLat - startLat) * easeProgress;
+        const curLng = startLng + (targetLng - startLng) * easeProgress;
+
+        tracker.currentLat = curLat;
+        tracker.currentLng = curLng;
+        tracker.marker.setLatLng([curLat, curLng]);
+
+        if (progress < 1) {
+          tracker.animFrame = requestAnimationFrame(step);
+        }
+      }
+
+      tracker.animFrame = requestAnimationFrame(step);
+    }
+
+    // 두 좌표 간 방위각(Bearing) 계산 (0°: 북, 90°: 동, 180°: 남, 270°: 서)
+    function calculateBearing(lat1, lon1, lat2, lon2) {
+      const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
+      const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
+      return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
+    // 버스 위치 실시간 수신 및 방향성 머리 적용 주행
     async function updateVehicles() {
       let totalCount = 0;
       const currentKeys = new Set();
@@ -422,91 +472,100 @@
         if (!cfg) continue;
 
         try {
-          const res = await fetch(`/api/bus/positions?routeId=${routeId}`);
+          const res = await fetch(`/api/bus/positions?routeId=${routeId}&_t=${Date.now()}`);
           const data = await res.json();
 
-          if (data.status === 'success' && data.vehicles && data.vehicles.length > 0) {
-            totalCount += data.vehicles.length;
-            const stations = stationCache[routeId] || [];
-            const originCoord = stations.length > 0 ? [stations[0].lat, stations[0].lng] : [36.335, 127.458];
-            const destCoord = stations.length > 1 ? [stations[Math.floor(stations.length/2)].lat, stations[Math.floor(stations.length/2)].lng] : [36.354, 127.375];
+          if (data.status === 'success') {
+            document.getElementById('syncTimeText').textContent = `${data.serverTime || new Date().toLocaleTimeString()} 갱신`;
 
-            data.vehicles.forEach((bus, idx) => {
-              const busKey = `${routeId}_${bus.plateNo || idx}`;
-              currentKeys.add(busKey);
-              let isUp = true;
+            if (data.vehicles && data.vehicles.length > 0) {
+              totalCount += data.vehicles.length;
+              const stations = stationCache[routeId] || [];
+              const halfSeq = Math.floor(stations.length / 2) || 40;
 
-              if (lastBusPositions[busKey]) {
-                const prev = lastBusPositions[busKey];
-                const prevDist = getDistance(prev.lat, prev.lng, destCoord[0], destCoord[1]);
-                const currDist = getDistance(bus.lat, bus.lng, destCoord[0], destCoord[1]);
+              data.vehicles.forEach((bus, idx) => {
+                const busKey = `${routeId}_${bus.plateNo || idx}`;
+                currentKeys.add(busKey);
 
-                if (Math.abs(prevDist - currDist) > 0.02) {
-                  isUp = currDist < prevDist;
-                } else {
-                  isUp = bus.stopSeq <= Math.floor(stations.length / 2);
-                }
-              } else {
-                isUp = bus.stopSeq <= Math.floor(stations.length / 2);
-              }
+                const snapped = snapToPolyline(bus.lat, bus.lng, routeId);
+                const isUp = bus.stopSeq <= halfSeq;
+                const markerBg = getRouteColor(cfg.name, cfg.type, !isUp);
+                const targetDest = isUp ? cfg.dest : cfg.origin;
 
-              lastBusPositions[busKey] = { lat: bus.lat, lng: bus.lng, isUp };
+                if (activeBusTracker[busKey]) {
+                  const tracker = activeBusTracker[busKey];
+                  const heading = calculateBearing(tracker.currentLat, tracker.currentLng, snapped[0], snapped[1]);
 
-              const snapped = snapToPolyline(bus.lat, bus.lng, routeId);
-              const markerBg = getRouteColor(cfg.name, cfg.type, !isUp);
-              const targetDest = isUp ? cfg.dest : cfg.origin;
+                  // 순간이동 방지: 부드러운 연속 이동 시작
+                  animateBusMotion(tracker, snapped[0], snapped[1], heading, 14000);
 
-              // 마커가 이미 있으면 삭제하지 않고 부드럽게 좌표만 갱신 (깜빡임 완전 제거)
-              if (activeBusMarkers[busKey]) {
-                const marker = activeBusMarkers[busKey];
-                marker.setLatLng(snapped);
-                marker.setPopupContent(`
-                  <div style="font-size:12px; line-height:1.5;">
-                    <b style="font-size:13px; color:${markerBg};">${cfg.name}번 버스</b><br>
-                    <b>행선지:</b> ${targetDest} 방면 (${isUp ? '상행' : '하행'})<br>
-                    <b>차량번호:</b> ${bus.plateNo}<br>
-                    <b>정류소 순번:</b> ${bus.stopSeq}번째 통과 중<br>
-                    <b>수신 시각:</b> ${new Date(bus.updatedAt).toLocaleTimeString()}
-                  </div>
-                `);
-              } else {
-                const busIcon = L.divIcon({
-                  className: '',
-                  html: `
-                    <div class="bus-side-container">
-                      ${createSideBusSvg(markerBg)}
-                      <div class="bus-side-text">${cfg.name}</div>
-                    </div>
-                  `,
-                  iconSize: [0, 0]
-                });
-
-                const marker = L.marker(snapped, { icon: busIcon })
-                  .bindPopup(`
+                  tracker.marker.setPopupContent(`
                     <div style="font-size:12px; line-height:1.5;">
                       <b style="font-size:13px; color:${markerBg};">${cfg.name}번 버스</b><br>
                       <b>행선지:</b> ${targetDest} 방면 (${isUp ? '상행' : '하행'})<br>
                       <b>차량번호:</b> ${bus.plateNo}<br>
-                      <b>정류소 순번:</b> ${bus.stopSeq}번째 통과 중<br>
-                      <b>수신 시각:</b> ${new Date(bus.updatedAt).toLocaleTimeString()}
+                      <b>현재 통과:</b> ${bus.stopSeq}번째 정류소<br>
+                      <b>갱신:</b> ${new Date().toLocaleTimeString()} (정상 주행 중)
                     </div>
                   `);
+                } else {
+                  // 신규 차량 마커 생성
+                  const busElementId = `bus-inner-${busKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                  const busIcon = L.divIcon({
+                    className: '',
+                    html: `
+                      <div class="bus-carrier-wrap">
+                        <div class="bus-body-inner" id="${busElementId}">
+                          ${createSideBusSvg(markerBg)}
+                          <div class="bus-side-text">${cfg.name}</div>
+                        </div>
+                      </div>
+                    `,
+                    iconSize: [0, 0]
+                  });
 
-                busGroup.addLayer(marker);
-                activeBusMarkers[busKey] = marker;
-              }
-            });
+                  const marker = L.marker(snapped, { icon: busIcon })
+                    .bindPopup(`
+                      <div style="font-size:12px; line-height:1.5;">
+                        <b style="font-size:13px; color:${markerBg};">${cfg.name}번 버스</b><br>
+                        <b>행선지:</b> ${targetDest} 방면 (${isUp ? '상행' : '하행'})<br>
+                        <b>차량번호:</b> ${bus.plateNo}<br>
+                        <b>현재 통과:</b> ${bus.stopSeq}번째 정류소<br>
+                        <b>갱신:</b> ${new Date().toLocaleTimeString()}
+                      </div>
+                    `);
+
+                  busGroup.addLayer(marker);
+
+                  const tracker = {
+                    marker,
+                    currentLat: snapped[0],
+                    currentLng: snapped[1],
+                    animFrame: null,
+                    domInner: null
+                  };
+
+                  activeBusTracker[busKey] = tracker;
+
+                  // 렌더 직후 DOM 참조 바인딩
+                  setTimeout(() => {
+                    tracker.domInner = document.getElementById(busElementId);
+                  }, 50);
+                }
+              });
+            }
           }
         } catch(e) {
           console.error(e);
         }
       }
 
-      // 운행 종료된 버스만 부드럽게 제거
-      Object.keys(activeBusMarkers).forEach(key => {
+      // 운행 종료된 차량만 정리
+      Object.keys(activeBusTracker).forEach(key => {
         if (!currentKeys.has(key)) {
-          busGroup.removeLayer(activeBusMarkers[key]);
-          delete activeBusMarkers[key];
+          if (activeBusTracker[key].animFrame) cancelAnimationFrame(activeBusTracker[key].animFrame);
+          busGroup.removeLayer(activeBusTracker[key].marker);
+          delete activeBusTracker[key];
         }
       });
 
