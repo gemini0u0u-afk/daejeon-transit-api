@@ -7,6 +7,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Vercel 및 브라우저 캐싱 원천 차단 (실시간 최신 데이터 보장)
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
 const parser = new xml2js.Parser({ explicitArray: false, trim: true });
 const routeStationCache = {};
 
@@ -33,7 +41,7 @@ const OFFICIAL_ROUTES = [
   { id: '30300104', name: '911', type: 'branch', origin: '충남대', dest: '대전컨벤션센터', desc: '충남대 ↔ DCC' }
 ];
 
-// 1. 노선 마스터 목록 API
+// 1. 노선 목록 API
 app.get('/api/bus/routes', (req, res) => {
   res.json({
     status: 'success',
@@ -69,14 +77,19 @@ app.get('/api/bus/stations', async (req, res) => {
       if (!body || !body.itemList) return res.json({ status: 'success', routeId, stations: [] });
 
       const list = Array.isArray(body.itemList) ? body.itemList : [body.itemList];
-      const stations = list.map(item => ({
-        stationId: String(item.BUS_STOP_ID || item.STATION_ID || item.busStopId || '').trim(),
-        arsId: String(item.BUSSTOP_ENG_NM || item.ARS_ID || item.busStopNo || '').trim(),
-        stationName: item.BUSSTOP_NM || item.STATION_NM || '정류소',
-        seq: parseInt(item.BUSSTOP_SEQ || item.STATION_SEQ || '0', 10),
-        lat: parseFloat(item.GPS_LATI || item.LAT || 0),
-        lng: parseFloat(item.GPS_LONG || item.LONG || 0)
-      })).filter(s => s.lat > 35.0 && s.lng > 126.0)
+      const stations = list.map(item => {
+        const rawStopId = item.BUSSTOP_ID || item.BUS_STOP_ID || item.STATION_ID || item.BS_ID || item.busStopId || '';
+        const rawArsId = item.BUSSTOP_ENG_NM || item.ARS_ID || item.busStopNo || item.BUSSTOP_NO || '';
+
+        return {
+          stationId: String(rawStopId).trim(),
+          arsId: String(rawArsId).trim(),
+          stationName: item.BUSSTOP_NM || item.STATION_NM || '정류소',
+          seq: parseInt(item.BUSSTOP_SEQ || item.STATION_SEQ || item.seq || '0', 10),
+          lat: parseFloat(item.GPS_LATI || item.LAT || item.lat || 0),
+          lng: parseFloat(item.GPS_LONG || item.LONG || item.lng || 0)
+        };
+      }).filter(s => s.lat > 35.0 && s.lng > 126.0)
         .sort((a, b) => a.seq - b.seq);
 
       routeStationCache[routeId] = stations;
@@ -105,7 +118,7 @@ app.get('/api/bus/positions', async (req, res) => {
 
       const body = result?.ServiceResult?.msgBody;
       if (!body || !body.itemList) {
-        return res.json({ status: 'success', routeId, count: 0, vehicles: [] });
+        return res.json({ status: 'success', routeId, count: 0, serverTime: new Date().toLocaleTimeString(), vehicles: [] });
       }
 
       const list = Array.isArray(body.itemList) ? body.itemList : [body.itemList];
@@ -113,20 +126,26 @@ app.get('/api/bus/positions', async (req, res) => {
         busId: String(item.BUS_ID || item.busId || `BUS_${idx}`).trim(),
         plateNo: String(item.CAR_REG_NO || item.plateNo || `대전${idx + 1}`).trim(),
         routeId,
-        lat: parseFloat(item.GPS_LATI || 0),
-        lng: parseFloat(item.GPS_LONG || 0),
-        stopSeq: parseInt(item.STATION_ORD || '0', 10),
+        lat: parseFloat(item.GPS_LATI || item.lat || 0),
+        lng: parseFloat(item.GPS_LONG || item.lng || 0),
+        stopSeq: parseInt(item.STATION_ORD || item.stopSeq || '0', 10),
         updatedAt: new Date().toISOString()
       })).filter(v => v.lat > 35.0 && v.lng > 126.0);
 
-      res.json({ status: 'success', routeId, count: vehicles.length, vehicles });
+      res.json({
+        status: 'success',
+        routeId,
+        count: vehicles.length,
+        serverTime: new Date().toLocaleTimeString(),
+        vehicles
+      });
     });
   } catch (err) {
     res.status(502).json({ status: 'error', message: err.message });
   }
 });
 
-// 4. 정류소별 실시간 도착 예정 정보 API (이중 폴백 지원)
+// 4. 정류소별 실시간 도착 예정 정보 API
 app.get('/api/bus/arrivals', async (req, res) => {
   const stopId = (req.query.stopId || '').trim();
   const serviceKey = (process.env.PUBLIC_SERVICE_KEY || '').trim();
@@ -135,22 +154,18 @@ app.get('/api/bus/arrivals', async (req, res) => {
     return res.status(400).json({ status: 'error', message: '정류소 ID 및 인증키가 필요합니다.' });
   }
 
-  // 1차: 7자리 BusStopID로 조회
-  let url = `https://apis.data.go.kr/6300000/arrive/getArrInfoByStopID?serviceKey=${serviceKey}&BusStopID=${stopId}`;
+  const url = `https://apis.data.go.kr/6300000/arrive/getArrInfoByStopID?serviceKey=${serviceKey}&BusStopID=${stopId}`;
   try {
-    let response = await axios.get(url, { timeout: 7000 });
-    let xmlData = response.data;
-
-    parser.parseString(xmlData, async (err, result) => {
+    const response = await axios.get(url, { timeout: 7000 });
+    parser.parseString(response.data, async (err, result) => {
       let body = result?.ServiceResult?.msgBody;
       let list = body?.itemList ? (Array.isArray(body.itemList) ? body.itemList : [body.itemList]) : [];
 
-      // 2차 Fallback: 만약 7자리 조회가 비어있으면 ARS-ID로 2차 조회 시도
       if (list.length === 0 && stopId.length === 5) {
         try {
           const fallbackUrl = `https://apis.data.go.kr/6300000/arrive/getArrInfoByUid?serviceKey=${serviceKey}&arsId=${stopId}`;
-          const fallbackRes = await axios.get(fallbackUrl, { timeout: 6000 });
-          parser.parseString(fallbackRes.data, (fbErr, fbResult) => {
+          const fbRes = await axios.get(fallbackUrl, { timeout: 6000 });
+          parser.parseString(fbRes.data, (fbErr, fbResult) => {
             const fbBody = fbResult?.ServiceResult?.msgBody;
             if (fbBody && fbBody.itemList) {
               list = Array.isArray(fbBody.itemList) ? fbBody.itemList : [fbBody.itemList];
@@ -166,7 +181,7 @@ app.get('/api/bus/arrivals', async (req, res) => {
 
         return {
           routeName: String(routeNm),
-          dest: item.DESTINATION || '',
+          dest: item.DESTINATION || item.destNm || '',
           remainMin: minVal ? `${minVal}분` : '곧 도착',
           remainStop: stopVal ? `${stopVal}번째 전` : '진입 중'
         };
