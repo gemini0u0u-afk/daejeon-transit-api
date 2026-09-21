@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>대전 실시간 버스 위치 관제 서비스</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    #map { width: 100%; height: 100%; }
+    .status-panel {
+      position: absolute; top: 16px; left: 16px; z-index: 1000;
+      background: rgba(255, 255, 255, 0.95); padding: 16px 20px;
+      border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      backdrop-filter: blur(4px); min-width: 240px;
+    }
+    .status-panel h1 { font-size: 16px; font-weight: 700; color: #111; margin-bottom: 4px; }
+    .status-panel .subtitle { font-size: 12px; color: #666; margin-bottom: 12px; }
+    .route-select-wrap { margin-bottom: 10px; }
+    .route-select-wrap label { font-size: 12px; font-weight: 600; color: #444; display: block; margin-bottom: 4px; }
+    .route-select {
+      width: 100%; padding: 8px 10px; border: 1px solid #ccc;
+      border-radius: 6px; font-size: 13px; font-weight: 600; color: #222; outline: none; background: #fff;
+    }
+    .status-panel p { font-size: 13px; color: #444; margin-bottom: 6px; }
+    .badge {
+      display: inline-block; padding: 3px 8px; font-size: 11px;
+      font-weight: 600; border-radius: 20px; background: #e6f4ea; color: #137333;
+    }
+    .bus-marker-div {
+      color: #ffffff; font-size: 11px; font-weight: bold; padding: 4px 8px;
+      border-radius: 14px; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+      white-space: nowrap; text-align: center; display: inline-block; cursor: pointer;
+    }
+    .badge-express { background: #e1251b; }
+    .badge-trunk { background: #1a73e8; }
+    .badge-branch { background: #28a745; }
+  </style>
+</head>
+<body>
+
+  <div class="status-panel">
+    <h1>대전 버스 실시간 관제</h1>
+    <div class="subtitle">공공데이터 기반 실시간 모니터링</div>
+    
+    <div class="route-select-wrap">
+      <label for="route-selector">노선 선택</label>
+      <select id="route-selector" class="route-select" onchange="changeRoute(this.value)">
+        <option value="30300001" data-type="express" data-name="급행1">급행 1번 (원내동 ↔ 신탄진)</option>
+        <option value="30300002" data-type="express" data-name="급행2">급행 2번 (봉산동 ↔ 옥계동)</option>
+        <option value="30300003" data-type="express" data-name="급행3">급행 3번 (원내동 ↔ 정부청사)</option>
+        <option value="30300075" data-type="trunk" data-name="605">605번 (대전대 ↔ 갈마아파트)</option>
+        <option value="30300083" data-type="trunk" data-name="703">703번 (신탄진 ↔ 정림동)</option>
+        <option value="30300057" data-type="branch" data-name="213">213번 (원내동 ↔ 대한통운)</option>
+        <option value="30300037" data-type="trunk" data-name="102">102번 (수통골 ↔ 대전역)</option>
+        <option value="30300040" data-type="trunk" data-name="105">105번 (충대농대 ↔ 판암지구)</option>
+        <option value="30300052" data-type="trunk" data-name="201">201번 (원내동 ↔ 대전역동광장)</option>
+        <option value="30300067" data-type="trunk" data-name="301">301번 (봉산동 ↔ 오월드)</option>
+      </select>
+    </div>
+
+    <p id="bus-count">운행 중 차량: 확인 중...</p>
+    <div class="badge" id="sync-status">자동 갱신 대기 중</div>
+  </div>
+
+  <div id="map"></div>
+
+  <script>
+    const map = L.map('map').setView([36.3504, 127.3845], 12);
+
+    L.tileLayer('https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png', {
+      attribution: '&copy; VWorld',
+      maxZoom: 19
+    }).addTo(map);
+
+    const busLayerGroup = L.layerGroup().addTo(map);
+
+    let currentRouteId = '30300001';
+    let currentRouteName = '급행1';
+    let currentRouteType = 'express';
+    let timerId = null;
+
+    async function updateBusPositions() {
+      const apiUrl = `/api/bus/positions?routeId=${currentRouteId}`;
+
+      try {
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+
+        if (data.status === 'success') {
+          document.getElementById('bus-count').textContent = `운행 중 차량: ${data.count}대`;
+          renderMarkers(data.vehicles);
+          const badge = document.getElementById('sync-status');
+          badge.textContent = '정상 수신 중 (15초 주기)';
+          badge.style.background = '#e6f4ea';
+          badge.style.color = '#137333';
+        } else {
+          document.getElementById('bus-count').textContent = '운행 중 차량: 0대';
+          busLayerGroup.clearLayers();
+          const badge = document.getElementById('sync-status');
+          badge.textContent = data.message || '데이터 대기 중';
+          badge.style.background = '#fef7e0';
+          badge.style.color = '#b06000';
+        }
+      } catch (err) {
+        console.error('위치 데이터 수신 실패:', err);
+        const badge = document.getElementById('sync-status');
+        badge.textContent = '트래픽 제한 또는 통신 지연';
+        badge.style.background = '#fce8e6';
+        badge.style.color = '#c5221f';
+      }
+    }
+
+    function renderMarkers(vehicles) {
+      busLayerGroup.clearLayers();
+
+      let colorClass = 'badge-trunk';
+      if (currentRouteType === 'express') colorClass = 'badge-express';
+      else if (currentRouteType === 'branch') colorClass = 'badge-branch';
+
+      vehicles.forEach(bus => {
+        const busIcon = L.divIcon({
+          className: 'custom-bus-icon',
+          html: `<div class="bus-marker-div ${colorClass}">🚌 ${currentRouteName}</div>`,
+          iconSize: [64, 24],
+          iconAnchor: [32, 12]
+        });
+
+        const marker = L.marker([bus.lat, bus.lng], { icon: busIcon })
+          .bindPopup(`<b>${currentRouteName}번 버스</b><br>차량번호: ${bus.plateNo}<br>업데이트: ${new Date(bus.updatedAt).toLocaleTimeString()}`);
+
+        busLayerGroup.addLayer(marker);
+      });
+    }
+
+    function changeRoute(routeId) {
+      const selector = document.getElementById('route-selector');
+      const selectedOption = selector.options[selector.selectedIndex];
+      
+      currentRouteId = routeId;
+      currentRouteName = selectedOption.getAttribute('data-name');
+      currentRouteType = selectedOption.getAttribute('data-type');
+
+      document.getElementById('bus-count').textContent = '데이터 조회 중...';
+      
+      if (timerId) clearInterval(timerId);
+      updateBusPositions();
+      timerId = setInterval(updateBusPositions, 15000);
+    }
+
+    updateBusPositions();
+    timerId = setInterval(updateBusPositions, 15000);
+  </script>
+</body>
+</html>
