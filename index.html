@@ -6,7 +6,7 @@
 
   <title>대전 실시간 버스 위치 관제 | 대전 시내버스 실시간 노선도</title>
   <meta name="description" content="대전광역시 시내버스 전 노선 실시간 주행 위치 및 정류소 도착 예정 시간 안내 지도. 급행1, 605, 703, 213 등 대전 버스 실시간 모니터링.">
-  <meta name="keywords" content="대전 버스 실시간, 대전 시내버스 위치, 대전 버스 도착시간, 605번 버스, 급행1번, 703번, 대전 대중교통 지도, 대전 버스 노선도, 대전역 버스, 타임월드 버스">
+  <meta name="keywords" content="대전 버스 실시간, 대전 시내버스 위치, 대전 버스 도착시간, 605번 버스, 급행1번, 703번, 대전 대중교통 지도, 대전 버스 노선도">
   <link rel="canonical" href="https://daejeon-transit-api.vercel.app/" />
   <meta name="geo.region" content="KR-30" />
   <meta name="geo.placename" content="Daejeon" />
@@ -81,51 +81,52 @@
     .legend-bar-solid { width: 16px; height: 4px; background: #1a73e8; border-radius: 2px; }
     .legend-bar-dash { width: 16px; height: 0; border-top: 3px dashed #00acc1; }
 
-    /* 버스 마커 컨테이너 */
+    /* 버스 진행 방향(머리) 및 360도 도로 회전 마커 */
     .bus-carrier-wrap {
-      width: 54px;
-      height: 28px;
+      width: 44px;
+      height: 44px;
       transform: translate(-50%, -50%);
       cursor: pointer;
       position: relative;
     }
-    /* 그래픽만 좌우 반전 (텍스트는 영향 없음) */
+    /* 도로 진행 방향으로 회전하는 버스 차체 (탑다운 뷰) */
     .bus-body-graphics {
       width: 100%;
       height: 100%;
       position: absolute;
       top: 0;
       left: 0;
-      transition: transform 0.35s ease;
-      transform-origin: 27px 14px;
+      transition: transform 0.25s linear;
+      transform-origin: 22px 22px;
     }
-    .bus-side-svg {
+    .bus-topdown-svg {
       width: 100%;
       height: 100%;
-      filter: drop-shadow(0px 2px 5px rgba(0, 0, 0, 0.45));
+      filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5));
     }
-    /* 숫자는 절대 반전되지 않고 항상 정방향 고정 */
+    /* 노선 번호는 회전하지 않고 항상 수평(정방향) 유지 */
     .bus-fixed-number {
       position: absolute;
-      top: 7px;
-      left: 11px;
+      top: 15px;
+      left: 6px;
       width: 32px;
       text-align: center;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 900;
       color: #ffffff;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.75);
       border-radius: 3px;
-      padding: 0 2px;
+      padding: 0 1px;
       line-height: 14px;
       pointer-events: none;
       letter-spacing: -0.5px;
       z-index: 10;
+      border: 1px solid rgba(255,255,255,0.4);
     }
 
     /* 정류소 핀 */
     .station-pin {
-      width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff;
+      width: 11px; height: 11px; border-radius: 50%; border: 2px solid #fff;
       box-shadow: 0 2px 5px rgba(0,0,0,0.4); cursor: pointer; transform: translate(-50%, -50%);
       transition: transform 0.15s ease;
     }
@@ -170,7 +171,7 @@
       <span><b>하행선</b> (점선 · 밝은 색)</span>
     </div>
     <div style="color: #666; font-size: 10px; margin-top: 2px;">
-      * 버스 앞부분의 찐한 1자 라인이 머리(진행방향)
+      * 버스 앞부분의 굵은 1자 라인이 머리(진행 방향)
     </div>
   </div>
 
@@ -180,7 +181,6 @@
     const map = L.map('map', { zoomControl: false }).setView([36.3504, 127.3845], 12);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    // 최신 도로망 표준 타일
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19
@@ -269,12 +269,14 @@
         : '노선을 선택해 주세요';
     }
 
-    function snapToPolyline(lat, lng, routeId) {
+    // 도로 선분 상의 최근접 위치 및 인덱스 검색 (경로 추적용)
+    function getClosestPointOnPolyline(lat, lng, routeId) {
       const segments = routeLineSegments[routeId];
-      if (!segments || segments.length === 0) return [lat, lng];
+      if (!segments || segments.length === 0) return { point: [lat, lng], index: 0 };
 
       let minDist = Infinity;
-      let snappedPoint = [lat, lng];
+      let closest = [lat, lng];
+      let matchIdx = 0;
 
       for (let i = 0; i < segments.length - 1; i++) {
         const p1 = segments[i], p2 = segments[i + 1];
@@ -292,11 +294,12 @@
         const distSq = (x - projLng) * (x - projLng) + (y - projLat) * (y - projLat);
         if (distSq < minDist) {
           minDist = distSq;
-          snappedPoint = [projLat, projLng];
+          closest = [projLat, projLng];
+          matchIdx = i;
         }
       }
-      if (minDist < 0.0000008) return snappedPoint;
-      return [lat, lng];
+
+      return { point: (minDist < 0.0000008 ? closest : [lat, lng]), index: matchIdx };
     }
 
     async function drawRoutes() {
@@ -343,7 +346,7 @@
             const icon = L.divIcon({
               className: '',
               html: `<div class="station-pin" style="background:${color};"></div>`,
-              iconSize: [12, 12]
+              iconSize: [11, 11]
             });
 
             const marker = L.marker([s.lat, s.lng], { icon }).addTo(stationGroup);
@@ -401,62 +404,93 @@
       return bounds;
     }
 
-    // 버스 그래픽 SVG: 앞머리(우측 끝)에 진하고 두꺼운 1자 세로 바(|) 적용
-    function createDirectionalBusSvg(color) {
+    // 도로 360도 회전용 버스 그래픽 SVG (앞머리에 찐하고 굵은 1자 바 탑재)
+    // 기본 기준: 0도는 위쪽(북쪽)을 향함
+    function createTopDownBusSvg(color) {
       return `
-        <svg class="bus-side-svg" viewBox="0 0 54 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- 버스 차체 본체 -->
-          <path d="M3 18V8C3 5.5 5 4 8 4H43C46 4 48 6 48 9V18C48 19 47 20 46 20H43C43 18 41 16 38 16C35 16 33 18 33 20H17C17 18 15 16 12 16C9 16 7 18 7 20H4C3.5 20 3 19 3 18Z" fill="${color}" stroke="#ffffff" stroke-width="1.5"/>
+        <svg class="bus-topdown-svg" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- 버스 몸체 (세로 직사각형 - 위가 앞머리) -->
+          <rect x="12" y="5" width="20" height="34" rx="5" fill="${color}" stroke="#ffffff" stroke-width="1.8"/>
           
-          <!-- 창문들 -->
-          <rect x="6" y="6" width="6" height="7" rx="1" fill="#ffffff" opacity="0.95"/>
-          <rect x="14" y="6" width="7" height="7" rx="1" fill="#ffffff" opacity="0.95"/>
-          <rect x="23" y="6" width="7" height="7" rx="1" fill="#ffffff" opacity="0.95"/>
-          <rect x="32" y="6" width="7" height="7" rx="1" fill="#ffffff" opacity="0.95"/>
-          <path d="M41 6H44C46 6 47 7.5 47 9.5V13H41V6Z" fill="#ffffff" opacity="0.95"/>
-          
-          <!-- ★ 앞머리 강조: 찐한 1자 수직 바 (| 라인) - 여기가 버스 머리 -->
-          <rect x="47.5" y="4" width="4.5" height="15" rx="1.5" fill="#111111" stroke="#ffffff" stroke-width="0.8"/>
-          <!-- 1자 바 내부 중앙 포인트 라이트 -->
-          <rect x="49" y="8" width="1.5" height="7" rx="0.5" fill="#FFD600"/>
+          <!-- ★ 버스 앞머리 강조: 찐한 굵은 1자 라인 (검정 수직 바 + 중앙 옐로우 포인트) -->
+          <rect x="13" y="5" width="18" height="4.5" rx="1.5" fill="#111111" stroke="#ffffff" stroke-width="0.8"/>
+          <rect x="18" y="6" width="8" height="2" rx="0.5" fill="#FFD600"/>
 
-          <!-- 바퀴 2개 -->
-          <circle cx="12" cy="20" r="3.5" fill="#212529" stroke="#ffffff" stroke-width="1.2"/>
-          <circle cx="12" cy="20" r="1.2" fill="#ced4da"/>
-          <circle cx="38" cy="20" r="3.5" fill="#212529" stroke="#ffffff" stroke-width="1.2"/>
-          <circle cx="38" cy="20" r="1.2" fill="#ced4da"/>
+          <!-- 전면 윈드실드 창문 -->
+          <rect x="14" y="11" width="16" height="5" rx="1.5" fill="#ffffff" opacity="0.85"/>
+          
+          <!-- 양옆 사이드 미러 (머리 구분 보조) -->
+          <rect x="9" y="8" width="3" height="4" rx="1" fill="#222222"/>
+          <rect x="32" y="8" width="3" height="4" rx="1" fill="#222222"/>
+
+          <!-- 후면 테일램프 -->
+          <circle cx="15" cy="37" r="1.3" fill="#E53935"/>
+          <circle cx="29" cy="37" r="1.3" fill="#E53935"/>
         </svg>
       `;
     }
 
-    // 부드러운 주행 보간 및 머리 방향(그래픽만 반전, 숫자는 정방향 고정) 적용
-    function animateBusMotion(tracker, targetLat, targetLng, durationMs = 14000) {
+    // 두 좌표 간 방위각 계산 (0°: 북, 90°: 동, 180°: 남, 270°: 서)
+    function calculateBearing(lat1, lon1, lat2, lon2) {
+      const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
+      const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
+      return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
+    // 실제 도로 궤적(Polyline)을 따라 곡선을 밟으며 달리는 도로 추종 주행 엔진
+    function animateAlongRoadPath(tracker, pathPoints, durationMs = 14000) {
       if (tracker.animFrame) cancelAnimationFrame(tracker.animFrame);
+      if (!pathPoints || pathPoints.length < 2) return;
 
-      const startLat = tracker.currentLat;
-      const startLng = tracker.currentLng;
-      const startTime = performance.now();
-
-      // 서쪽(좌측) 진행 시 버스 그래픽만 좌우 반전, 동쪽(우측) 진행 시 원본 유지
-      const isMovingWest = targetLng < startLng;
-      if (tracker.domBody) {
-        tracker.domBody.style.transform = isMovingWest ? 'scaleX(-1)' : 'scaleX(1)';
+      // 각 도로 구간별 거리 누적 합 계산
+      const dists = [0];
+      let totalDist = 0;
+      for (let i = 0; i < pathPoints.length - 1; i++) {
+        const dLat = pathPoints[i+1][0] - pathPoints[i][0];
+        const dLng = pathPoints[i+1][1] - pathPoints[i][1];
+        const segDist = Math.sqrt(dLat * dLat + dLng * dLng);
+        totalDist += segDist;
+        dists.push(totalDist);
       }
+
+      const startTime = performance.now();
 
       function step(now) {
         const elapsed = now - startTime;
         const progress = Math.min(1, elapsed / durationMs);
 
-        const ease = progress < 0.5 
-          ? 2 * progress * progress 
-          : -1 + (4 - 2 * progress) * progress;
+        // 부드러운 가감속
+        const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+        const targetDist = ease * totalDist;
 
-        const curLat = startLat + (targetLat - startLat) * ease;
-        const curLng = startLng + (targetLng - startLng) * ease;
+        // 현재 거리에 해당하는 도로 세그먼트 찾기
+        let segIdx = 0;
+        for (let i = 0; i < dists.length - 1; i++) {
+          if (targetDist >= dists[i] && targetDist <= dists[i+1]) {
+            segIdx = i;
+            break;
+          }
+        }
+
+        const segLen = dists[segIdx+1] - dists[segIdx];
+        const segProgress = segLen > 0 ? (targetDist - dists[segIdx]) / segLen : 0;
+
+        const p1 = pathPoints[segIdx];
+        const p2 = pathPoints[segIdx+1];
+
+        const curLat = p1[0] + (p2[0] - p1[0]) * segProgress;
+        const curLng = p1[1] + (p2[1] - p1[1]) * segProgress;
 
         tracker.currentLat = curLat;
         tracker.currentLng = curLng;
         tracker.marker.setLatLng([curLat, curLng]);
+
+        // 현재 달리고 있는 도로 선분의 방위각으로 버스 차체 회전
+        const angle = calculateBearing(p1[0], p1[1], p2[0], p2[1]);
+        if (tracker.domBody) {
+          tracker.domBody.style.transform = `rotate(${angle}deg)`;
+        }
 
         if (progress < 1) {
           tracker.animFrame = requestAnimationFrame(step);
@@ -485,19 +519,42 @@
               totalCount += data.vehicles.length;
               const stations = stationCache[routeId] || [];
               const halfSeq = Math.floor(stations.length / 2) || 40;
+              const allSegments = routeLineSegments[routeId] || [];
 
               data.vehicles.forEach((bus, idx) => {
                 const busKey = `${routeId}_${bus.plateNo || idx}`;
                 currentKeys.add(busKey);
 
-                const snapped = snapToPolyline(bus.lat, bus.lng, routeId);
+                // 도로 선상에 스냅된 좌표 및 인덱스
+                const snapInfo = getClosestPointOnPolyline(bus.lat, bus.lng, routeId);
+                const snapped = snapInfo.point;
+                const snapIdx = snapInfo.index;
+
                 const isUp = bus.stopSeq <= halfSeq;
                 const markerBg = getRouteColor(cfg.name, cfg.type, !isUp);
                 const targetDest = isUp ? cfg.dest : cfg.origin;
 
                 if (activeBusTracker[busKey]) {
                   const tracker = activeBusTracker[busKey];
-                  animateBusMotion(tracker, snapped[0], snapped[1], 14000);
+
+                  // 시작 위치에서 목적지 위치까지의 도로 궤적 추출
+                  let roadPath = [];
+                  const startInfo = getClosestPointOnPolyline(tracker.currentLat, tracker.currentLng, routeId);
+                  const startIdx = startInfo.index;
+
+                  if (allSegments.length > 0 && Math.abs(snapIdx - startIdx) > 0 && Math.abs(snapIdx - startIdx) < 8) {
+                    if (startIdx <= snapIdx) {
+                      roadPath = [ [tracker.currentLat, tracker.currentLng], ...allSegments.slice(startIdx + 1, snapIdx + 1), snapped ];
+                    } else {
+                      const sliced = allSegments.slice(snapIdx, startIdx + 1).reverse();
+                      roadPath = [ [tracker.currentLat, tracker.currentLng], ...sliced, snapped ];
+                    }
+                  } else {
+                    roadPath = [ [tracker.currentLat, tracker.currentLng], snapped ];
+                  }
+
+                  // 도로 커브를 따라 달리는 애니메이션 실행
+                  animateAlongRoadPath(tracker, roadPath, 14000);
 
                   tracker.marker.setPopupContent(`
                     <div style="font-size:12px; line-height:1.5;">
@@ -514,11 +571,11 @@
                     className: '',
                     html: `
                       <div class="bus-carrier-wrap">
-                        <!-- 버스 차체 그래픽 (방향에 따라 좌우 반전됨) -->
+                        <!-- 도로 진행 방향으로 360도 회전하는 차체 -->
                         <div class="bus-body-graphics" id="${bodyElementId}">
-                          ${createDirectionalBusSvg(markerBg)}
+                          ${createTopDownBusSvg(markerBg)}
                         </div>
-                        <!-- 번호 텍스트 (절대 반전되지 않고 항상 정방향 유지) -->
+                        <!-- 숫자는 회전하지 않고 항상 수평(정방향) 유지 -->
                         <div class="bus-fixed-number">${cfg.name}</div>
                       </div>
                     `,
