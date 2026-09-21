@@ -81,7 +81,7 @@
     .legend-bar-solid { width: 16px; height: 4px; background: #1a73e8; border-radius: 2px; }
     .legend-bar-dash { width: 16px; height: 0; border-top: 3px dashed #00acc1; }
 
-    /* 버스 진행 방향 실시간 회전 마커 래퍼 */
+    /* 버스 마커 래퍼 */
     .bus-carrier-wrap {
       width: 44px;
       height: 44px;
@@ -94,7 +94,7 @@
       height: 100%;
       filter: drop-shadow(0px 2px 5px rgba(0, 0, 0, 0.5));
     }
-    /* 노선 번호는 회전하지 않고 항상 수평(정방향) 유지 */
+    /* 숫자는 절대 회전하지 않고 수평(정방향) 유지 */
     .bus-fixed-number {
       position: absolute;
       top: 15px;
@@ -104,7 +104,7 @@
       font-size: 10px;
       font-weight: 900;
       color: #ffffff;
-      background: rgba(0, 0, 0, 0.78);
+      background: rgba(0, 0, 0, 0.8);
       border-radius: 3px;
       padding: 0 1px;
       line-height: 14px;
@@ -181,6 +181,7 @@
     const busGroup = L.layerGroup().addTo(map);
 
     const activeBusTracker = {};
+    let isFirstLoad = true; // 최초 접속 즉시 렌더링 플래그
 
     const OFFICIAL_ROUTES = [
       { id: '30300072', name: '605', type: 'trunk', origin: '대전대동문', dest: '갈마아파트' },
@@ -259,6 +260,13 @@
         : '노선을 선택해 주세요';
     }
 
+    function calculateBearing(lat1, lon1, lat2, lon2) {
+      const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
+      const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
+      return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
     // 도로 선분 상의 최근접 위치 및 인덱스 검색
     function getClosestPointOnPolyline(lat, lng, routeId) {
       const segments = routeLineSegments[routeId];
@@ -289,7 +297,6 @@
         }
       }
 
-      // 일치하는 도로 선분의 실제 접선 각도 계산 (0°: 북, 90°: 동)
       const pA = segments[matchIdx];
       const pB = segments[matchIdx + 1] || segments[matchIdx];
       const segHeading = calculateBearing(pA[0], pA[1], pB[0], pB[1]);
@@ -403,24 +410,23 @@
       return bounds;
     }
 
-    // SVG 그래픽 자체에 rotate(deg)를 직접 주입 (Leaflet CSS 간섭 원천 배제)
+    // SVG 그래픽 그룹에 직접 각도 주입
     function createRotatedTopDownBusSvg(color, rotAngle, busKey) {
       const gId = `rot-g-${busKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
       return `
         <svg class="bus-topdown-svg" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- 실제 도로 각도로 완벽하게 회전하는 버스 차체 그룹 (중심축: 22, 22) -->
           <g id="${gId}" transform="rotate(${rotAngle}, 22, 22)">
             <!-- 버스 몸체 (세로 직사각형 - 위쪽이 머리) -->
             <rect x="12" y="5" width="20" height="34" rx="5" fill="${color}" stroke="#ffffff" stroke-width="1.8"/>
             
-            <!-- ★ 버스 앞머리 강조: 노선을 따라 회전하는 찐하고 굵은 1자 라인 -->
+            <!-- ★ 앞머리 굵은 1자 바 -->
             <rect x="13" y="5" width="18" height="4.5" rx="1.5" fill="#111111" stroke="#ffffff" stroke-width="0.8"/>
             <rect x="18" y="6" width="8" height="2" rx="0.5" fill="#FFD600"/>
 
-            <!-- 전면 윈드실드 창문 -->
+            <!-- 전면 유리창 -->
             <rect x="14" y="11" width="16" height="5" rx="1.5" fill="#ffffff" opacity="0.85"/>
             
-            <!-- 사이드 미러 (머리 방향 식별 보조) -->
+            <!-- 사이드 미러 -->
             <rect x="9" y="8" width="3" height="4" rx="1" fill="#222222"/>
             <rect x="32" y="8" width="3" height="4" rx="1" fill="#222222"/>
 
@@ -432,15 +438,7 @@
       `;
     }
 
-    // 두 좌표 간 방위각 계산 (0°: 북, 90°: 동, 180°: 남, 270°: 서)
-    function calculateBearing(lat1, lon1, lat2, lon2) {
-      const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
-      const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
-                Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
-      return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-    }
-
-    // 도로 궤적을 따라가며 각 선분의 도로축 각도에 맞춰 버스 머리를 실시간 회전하는 애니메이션 엔진
+    // 도로 궤적을 따라가며 애니메이션 (종료 후에도 마지막 각도 절대 리셋 없이 영구 보존)
     function animateAlongRoadPath(tracker, pathPoints, durationMs = 14000) {
       if (tracker.animFrame) cancelAnimationFrame(tracker.animFrame);
       if (!pathPoints || pathPoints.length < 2) return;
@@ -454,6 +452,8 @@
         totalDist += segDist;
         dists.push(totalDist);
       }
+
+      if (totalDist === 0) return;
 
       const startTime = performance.now();
 
@@ -476,7 +476,7 @@
         const segProgress = segLen > 0 ? (targetDist - dists[segIdx]) / segLen : 0;
 
         const p1 = pathPoints[segIdx];
-        const p2 = pathPoints[segIdx+1];
+        const p2 = pathPoints[segIdx+1] || p1;
 
         const curLat = p1[0] + (p2[0] - p1[0]) * segProgress;
         const curLng = p1[1] + (p2[1] - p1[1]) * segProgress;
@@ -485,14 +485,22 @@
         tracker.currentLng = curLng;
         tracker.marker.setLatLng([curLat, curLng]);
 
-        // ★ 현재 달리고 있는 도로 선분의 정확한 기울기 각도로 SVG 머리 실시간 회전
-        const roadAngle = calculateBearing(p1[0], p1[1], p2[0], p2[1]);
-        if (tracker.domSvgGroup) {
-          tracker.domSvgGroup.setAttribute('transform', `rotate(${roadAngle}, 22, 22)`);
+        // 현재 도로 세그먼트의 각도로 머리 회전
+        if (p1[0] !== p2[0] || p1[1] !== p2[1]) {
+          const roadAngle = calculateBearing(p1[0], p1[1], p2[0], p2[1]);
+          tracker.lastHeading = roadAngle;
+          if (tracker.domSvgGroup) {
+            tracker.domSvgGroup.setAttribute('transform', `rotate(${roadAngle}, 22, 22)`);
+          }
         }
 
         if (progress < 1) {
           tracker.animFrame = requestAnimationFrame(step);
+        } else {
+          // 이동 종료 시점: 마지막 주행 각도 유지 (위쪽 0도로 리셋 방지)
+          if (tracker.domSvgGroup && tracker.lastHeading !== undefined) {
+            tracker.domSvgGroup.setAttribute('transform', `rotate(${tracker.lastHeading}, 22, 22)`);
+          }
         }
       }
 
@@ -536,7 +544,7 @@
                 if (activeBusTracker[busKey]) {
                   const tracker = activeBusTracker[busKey];
 
-                  // 도로 선분을 따라가는 경로 포인트 배열 구축
+                  // 최초 로딩이 아닐 때만 14초 보간 주행
                   let roadPath = [];
                   const startInfo = getClosestPointOnPolyline(tracker.currentLat, tracker.currentLng, routeId);
                   const startIdx = startInfo.index;
@@ -552,7 +560,6 @@
                     roadPath = [ [tracker.currentLat, tracker.currentLng], snapped ];
                   }
 
-                  // 노선 굴곡과 도로 기울기에 맞춰 머리를 틀며 주행
                   animateAlongRoadPath(tracker, roadPath, 14000);
 
                   tracker.marker.setPopupContent(`
@@ -565,7 +572,7 @@
                     </div>
                   `);
                 } else {
-                  // 신규 마커 생성: 생성 시점부터 현재 도로 선분의 각도(roadHeading)를 즉시 주입
+                  // 신규 마커 생성: 초기 로딩 시 즉시 현재 위치에 배치 및 현재 도로 각도 적용
                   const svgGroupId = `rot-g-${busKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
                   const busIcon = L.divIcon({
                     className: '',
@@ -595,6 +602,7 @@
                     marker,
                     currentLat: snapped[0],
                     currentLng: snapped[1],
+                    lastHeading: roadHeading,
                     animFrame: null,
                     domSvgGroup: null
                   };
@@ -603,6 +611,9 @@
 
                   setTimeout(() => {
                     tracker.domSvgGroup = document.getElementById(svgGroupId);
+                    if (tracker.domSvgGroup) {
+                      tracker.domSvgGroup.setAttribute('transform', `rotate(${roadHeading}, 22, 22)`);
+                    }
                   }, 50);
                 }
               });
@@ -612,6 +623,9 @@
           console.error(e);
         }
       }
+
+      // 첫 로딩 완료 처리
+      isFirstLoad = false;
 
       Object.keys(activeBusTracker).forEach(key => {
         if (!currentKeys.has(key)) {
@@ -632,6 +646,7 @@
       }
     }
 
+    // 1초 카운트다운 인터벌
     setInterval(() => {
       countdown--;
       if (countdown <= 0) {
