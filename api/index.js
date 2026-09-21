@@ -10,7 +10,7 @@ app.use(express.json());
 const parser = new xml2js.Parser({ explicitArray: false, trim: true });
 const routeStationCache = {};
 
-// 대전 주요 핵심 노선 공식 마스터 (공공데이터 정규 ID 매핑)
+// 대전 주요 공식 노선 풀
 const OFFICIAL_ROUTES = [
   { id: '30300072', name: '605', type: 'trunk', origin: '대전대동문', dest: '갈마아파트', desc: '대전대동문 ↔ 갈마아파트' },
   { id: '30300001', name: '1', type: 'express', origin: '원내동', dest: '신안동', desc: '원내동 ↔ 신안동' },
@@ -33,7 +33,7 @@ const OFFICIAL_ROUTES = [
   { id: '30300104', name: '911', type: 'branch', origin: '충남대', dest: '대전컨벤션센터', desc: '충남대 ↔ DCC' }
 ];
 
-// 1. 노선 마스터 목록 API
+// 1. 노선 목록 API
 app.get('/api/bus/routes', (req, res) => {
   res.json({
     status: 'success',
@@ -49,7 +49,7 @@ app.get('/api/bus/routes', (req, res) => {
   });
 });
 
-// 2. 노선별 경유 정류소 목록 API
+// 2. 노선별 경유 정류소 목록 API (7자리 고유 식별자 BUS_STOP_ID 보장)
 app.get('/api/bus/stations', async (req, res) => {
   const routeId = req.query.routeId || '30300072';
   const serviceKey = (process.env.PUBLIC_SERVICE_KEY || '').trim();
@@ -70,9 +70,9 @@ app.get('/api/bus/stations', async (req, res) => {
 
       const list = Array.isArray(body.itemList) ? body.itemList : [body.itemList];
       const stations = list.map(item => ({
-        stationId: item.BUS_STOP_ID || item.STATION_ID,
-        arsId: item.BUSSTOP_ENG_NM || item.ARS_ID || '',
-        stationName: item.BUSSTOP_NM || item.STATION_NM,
+        stationId: String(item.BUS_STOP_ID || item.STATION_ID || item.busStopId || '').trim(),
+        arsId: String(item.BUSSTOP_ENG_NM || item.ARS_ID || item.busStopNo || '').trim(),
+        stationName: item.BUSSTOP_NM || item.STATION_NM || '정류소',
         seq: parseInt(item.BUSSTOP_SEQ || item.STATION_SEQ || '0', 10),
         lat: parseFloat(item.GPS_LATI || item.LAT || 0),
         lng: parseFloat(item.GPS_LONG || item.LONG || 0)
@@ -109,8 +109,8 @@ app.get('/api/bus/positions', async (req, res) => {
       }
 
       const list = Array.isArray(body.itemList) ? body.itemList : [body.itemList];
-      const vehicles = list.map(item => ({
-        busId: item.BUS_ID,
+      const vehicles = list.map((item, idx) => ({
+        busId: String(item.BUS_ID || item.busId || `BUS_${idx}`).trim(),
         plateNo: item.CAR_REG_NO || '대전버스',
         routeId,
         lat: parseFloat(item.GPS_LATI || 0),
@@ -126,19 +126,18 @@ app.get('/api/bus/positions', async (req, res) => {
   }
 });
 
-// 4. 정류소별 실시간 도착 예정 정보 API (안정화 버전)
+// 4. 정류소별 실시간 도착 예정 정보 API
 app.get('/api/bus/arrivals', async (req, res) => {
   const stopId = (req.query.stopId || '').trim();
   const serviceKey = (process.env.PUBLIC_SERVICE_KEY || '').trim();
 
   if (!stopId || !serviceKey) {
-    return res.status(400).json({ status: 'error', message: 'stopId 및 API 키가 필요합니다.' });
+    return res.status(400).json({ status: 'error', message: '정류소 ID 및 인증키가 필요합니다.' });
   }
 
   const url = `https://apis.data.go.kr/6300000/arrive/getArrInfoByStopID?serviceKey=${serviceKey}&BusStopID=${stopId}`;
-
   try {
-    const response = await axios.get(url, { timeout: 7000 });
+    const response = await axios.get(url, { timeout: 8000 });
     parser.parseString(response.data, (err, result) => {
       if (err) return res.status(500).json({ status: 'error', message: 'XML 파싱 에러' });
 
@@ -150,18 +149,18 @@ app.get('/api/bus/arrivals', async (req, res) => {
       const list = Array.isArray(body.itemList) ? body.itemList : [body.itemList];
       const arrivals = list.map(item => {
         const routeNm = item.ROUTE_NO || item.busRouteNm || item.ROUTE_CD || '노선';
-        const minVal = item.EXTIME_MIN || item.predictTime1 || item.remainMin;
-        const stopVal = item.STATUS_POS || item.remainStop || item.EXTIME_SEC;
+        const minVal = item.EXTIME_MIN || item.predictTime1;
+        const stopVal = item.STATUS_POS;
 
         return {
-          routeName: routeNm,
-          dest: item.DESTINATION || item.destNm || '',
+          routeName: String(routeNm),
+          dest: item.DESTINATION || '',
           remainMin: minVal ? `${minVal}분` : '곧 도착',
           remainStop: stopVal ? `${stopVal}번째 전` : '진입 중'
         };
       });
 
-      return res.json({ status: 'success', stopId, count: arrivals.length, arrivals });
+      res.json({ status: 'success', stopId, count: arrivals.length, arrivals });
     });
   } catch (err) {
     res.status(502).json({ status: 'error', message: err.message });
