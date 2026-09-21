@@ -14,12 +14,12 @@ app.get('/api/bus/positions', async (req, res) => {
   const serviceKey = process.env.PUBLIC_SERVICE_KEY;
 
   if (!serviceKey) {
-    return res.status(500).json({ status: 'error', message: 'PUBLIC_SERVICE_KEY 환경변수가 설정되지 않았습니다.' });
+    return res.status(500).json({ status: 'error', message: 'PUBLIC_SERVICE_KEY 환경변수가 없습니다.' });
   }
 
-  // 대전광역시 버스위치정보 공식 게이트웨이 엔드포인트
+  // 공공데이터포털 공식 단일 엔드포인트
   const rawKey = serviceKey.trim();
-  const requestUrl = `http://apis.data.go.kr/6300000/busposinfo/busposinfoservice/getBusposbyRouteid?serviceKey=${rawKey}&busRouteId=${routeId}`;
+  const requestUrl = `http://apis.data.go.kr/6300000/busposinfo/getBusposbyRouteid?serviceKey=${rawKey}&busRouteId=${routeId}`;
 
   try {
     const response = await axios.get(requestUrl, { timeout: 10000 });
@@ -30,7 +30,7 @@ app.get('/api/bus/positions', async (req, res) => {
         return res.status(500).json({ status: 'error', message: 'XML 파싱 실패', raw: xmlData });
       }
 
-      // 1. 공공데이터포털 공통 에러 체크
+      // 공공데이터포털 공통 에러 응답
       const cmmHeader = result?.OpenAPI_ServiceResponse?.cmmMsgHeader;
       if (cmmHeader) {
         return res.json({
@@ -41,7 +41,7 @@ app.get('/api/bus/positions', async (req, res) => {
         });
       }
 
-      // 2. 대전시 버스 헤더 체크
+      // 대전시 헤더 확인
       const msgHeader = result?.ServiceResult?.msgHeader;
       if (msgHeader && msgHeader.headerCd !== '0') {
         return res.json({
