@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
   <title>대전 실시간 버스 위치 관제 | 대전 시내버스 실시간 도착 지도</title>
-  <meta name="description" content="대전광역시 시내버스 실시간 운행 위치 및 정류소 도착 예정 시간 안내 지도. 급행, 간선, 지선 버스 실시간 주행 애니메이션 및 정류장별 실시간 잔여 시간 제공.">
-  <meta name="keywords" content="대전 버스 실시간, 대전 시내버스 위치, 대전 버스 도착시간, 605번 버스, 급행1번, 703번, 대전 대중교통 지도, 대전 버스 노선도">
+  <meta name="description" content="대전광역시 시내버스 전 노선 실시간 주행 위치 및 정류소 도착 예정 시간 안내 지도 서비스. 급행1, 605, 703, 213 등 대전 버스 실시간 모니터링.">
+  <meta name="keywords" content="대전 버스 실시간, 대전 시내버스 위치, 대전 버스 도착시간, 605번 버스, 급행1번, 703번, 대전 대중교통 지도, 대전 버스 노선도, 대전역 버스, 타임월드 버스, 둔산동 버스, 유성온천 버스">
   <link rel="canonical" href="https://daejeon-transit-api.vercel.app/" />
   <meta name="geo.region" content="KR-30" />
   <meta name="geo.placename" content="Daejeon" />
@@ -39,7 +39,7 @@
     }
     .vehicle-count { font-size: 12px; color: #495057; font-weight: 600; margin-bottom: 8px; }
 
-    /* 드롭다운 노선 선택기 */
+    /* 드롭다운 노선 선택 버튼 */
     .dropdown-btn {
       width: 100%; padding: 8px 12px; background: #f1f3f5; border: 1px solid #ced4da;
       border-radius: 8px; font-size: 13px; font-weight: 700; color: #333; text-align: left;
@@ -62,7 +62,7 @@
       font-weight: bold; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px;
     }
 
-    /* 좌측 하단 상·하행 안내 범례 */
+    /* 좌측 하단 단일 방향 범례 */
     .bottom-legend {
       position: absolute; bottom: 16px; left: 12px; z-index: 1000;
       background: rgba(255, 255, 255, 0.94); padding: 8px 12px; border-radius: 8px;
@@ -73,11 +73,11 @@
     .legend-bar-solid { width: 16px; height: 4px; background: #1a73e8; border-radius: 2px; }
     .legend-bar-dash { width: 16px; height: 0; border-top: 3px dashed #00acc1; }
 
-    /* 버스 형태 그래픽 마커 (실제 버스 실루엣 + 부드러운 주행 이동) */
+    /* 버스 아이콘 마커 (실제 버스 그래픽 + 부드러운 애니메이션) */
     .bus-vehicle-container {
       position: relative;
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
       cursor: pointer;
       transform: translate(-50%, -50%);
       transition: transform 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -85,11 +85,11 @@
     .bus-vehicle-svg {
       width: 100%;
       height: 100%;
-      filter: drop-shadow(0px 3px 5px rgba(0, 0, 0, 0.35));
+      filter: drop-shadow(0px 3px 4px rgba(0, 0, 0, 0.35));
     }
     .bus-number-text {
       position: absolute;
-      top: 15px;
+      top: 14px;
       left: 0;
       width: 100%;
       text-align: center;
@@ -100,7 +100,7 @@
       pointer-events: none;
     }
 
-    /* 정류장 핀 */
+    /* 정류소 핀 */
     .station-pin {
       width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff;
       box-shadow: 0 2px 5px rgba(0,0,0,0.4); cursor: pointer; transform: translate(-50%, -50%);
@@ -108,7 +108,7 @@
     }
     .station-pin:hover { transform: translate(-50%, -50%) scale(1.3); }
 
-    /* 도착 정보 팝업 디자인 */
+    /* 정류소 도착 예정 정보 팝업 */
     .arrival-popup { min-width: 190px; font-size: 12px; }
     .arrival-title { font-size: 13px; font-weight: 800; color: #111; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 6px; }
     .arr-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 11px; }
@@ -144,14 +144,14 @@
       <span><b>하행선</b> (점선 · 밝은 색)</span>
     </div>
     <div style="color: #666; font-size: 10px; margin-top: 2px;">
-      * 정류소 핀 클릭 시 도착 시간 표출
+      * 정류소 핀 터치 시 도착 시간 표출
     </div>
   </div>
 
   <div id="map"></div>
 
   <script>
-    // 확대/축소 버튼 오른쪽 하단(bottomright) 배치
+    // 확대/축소 버튼 우측 하단(bottomright) 배치
     const map = L.map('map', { zoomControl: false }).setView([36.3504, 127.3845], 12);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -163,9 +163,6 @@
     const lineGroup = L.layerGroup().addTo(map);
     const stationGroup = L.layerGroup().addTo(map);
     const busGroup = L.layerGroup().addTo(map);
-
-    // 버스 마커 인스턴스 저장소 (부드러운 애니메이션 이동을 위해 객체 유지)
-    const busMarkerInstances = {};
 
     const OFFICIAL_ROUTES = [
       { id: '30300072', name: '605', type: 'trunk', origin: '대전대동문', dest: '갈마아파트' },
@@ -181,7 +178,7 @@
       { id: '30300067', name: '301', type: 'trunk', origin: '봉산동', dest: '오월드' }
     ];
 
-    const activeRouteIds = new Set(['30300072']); // 605번 기본 활성화
+    const activeRouteIds = new Set(['30300072']); // 기본 605번
     const stationCache = {};
     const routeLineSegments = {};
     const lastBusPositions = {};
@@ -245,7 +242,7 @@
         : '노선을 선택해 주세요';
     }
 
-    // 도로 선분 스냅 (착 달라붙게 보정)
+    // 도로 선분 투영 보정 (차선 밀착)
     function snapToPolyline(lat, lng, routeId) {
       const segments = routeLineSegments[routeId];
       if (!segments || segments.length === 0) return [lat, lng];
@@ -276,7 +273,7 @@
       return [lat, lng];
     }
 
-    // 노선선 및 정류장 핀 그리기 & 정류장 클릭 시 실시간 도착 정보 표출
+    // 노선 궤적선 및 정류장 핀 그리기 (도착 정보 팝업 연동)
     async function drawRoutes() {
       lineGroup.clearLayers();
       stationGroup.clearLayers();
@@ -311,6 +308,7 @@
           const upColor = getRouteColor(cfg.name, cfg.type, false);
           const downColor = getRouteColor(cfg.name, cfg.type, true);
 
+          // 상행(실선), 하행(점선)
           L.polyline(upCoords, { color: upColor, weight: 5, opacity: 0.85, lineJoin: 'round' }).addTo(lineGroup);
           L.polyline(downCoords, { color: downColor, weight: 4, dashArray: '7, 7', opacity: 0.9, lineJoin: 'round' }).addTo(lineGroup);
 
@@ -327,20 +325,18 @@
             const marker = L.marker([s.lat, s.lng], { icon }).addTo(stationGroup);
             bounds.push([s.lat, s.lng]);
 
-            // 정류소 핀 클릭 시 실시간 도착 정보 호출 및 팝업 표출
+            // 정류소 터치/클릭 시 실시간 도착 정보 조회
             marker.on('click', async () => {
               marker.bindPopup(`
                 <div class="arrival-popup">
                   <div class="arrival-title">🚏 ${s.stationName}</div>
                   <div style="color:#666; font-size:11px;">방면: ${destTargetName}</div>
-                  <div style="margin-top:6px; color:#1a73e8; font-weight:bold;">실시간 버스 도착 정보 조회 중...</div>
+                  <div style="margin-top:6px; color:#1a73e8; font-weight:bold;">실시간 도착 정보 조회 중...</div>
                 </div>
               `).openPopup();
 
               try {
-                // 정류소 7자리 ID 우선 조회, 실패 시 arsId 보조
-                const queryId = s.stationId || s.arsId;
-                const arrRes = await fetch(`/api/bus/arrivals?stopId=${queryId}`);
+                const arrRes = await fetch(`/api/bus/arrivals?stopId=${s.stationId}`);
                 const arrData = await arrRes.json();
 
                 let html = `
@@ -356,7 +352,7 @@
                   });
                   html += `</table>`;
                 } else {
-                  html += `<div style="margin-top:6px; color:#888; font-size:11px;">현재 15분 이내 도착 예정 차량이 없습니다.</div>`;
+                  html += `<div style="margin-top:6px; color:#888; font-size:11px;">현재 15분 이내 도착 예정 버스가 없습니다.</div>`;
                 }
                 html += `</div>`;
                 marker.setPopupContent(html);
@@ -364,7 +360,7 @@
                 marker.setPopupContent(`
                   <div class="arrival-popup">
                     <div class="arrival-title">🚏 ${s.stationName}</div>
-                    <div style="color:#e03131; font-size:11px;">도착 정보를 불러오지 못했습니다.</div>
+                    <div style="color:#e03131; font-size:11px;">도착 정보 수신 지연</div>
                   </div>
                 `);
               }
@@ -389,28 +385,24 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
-    // 실제 귀여운 버스 실루엣 SVG 생성기
+    // 버스 그래픽 SVG 아이콘 생성
     function createBusSvg(color) {
       return `
         <svg class="bus-vehicle-svg" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- 버스 메인 차체 -->
           <rect x="4" y="4" width="28" height="26" rx="6" fill="${color}" stroke="#ffffff" stroke-width="2"/>
-          <!-- 앞유리창 -->
           <rect x="7" y="8" width="22" height="9" rx="3" fill="#ffffff" opacity="0.9"/>
-          <rect x="9" y="10" width="18" height="6" rx="2" fill="#333333" opacity="0.15"/>
-          <!-- 헤드라이트 -->
+          <rect x="9" y="10" width="18" height="6" rx="2" fill="#222222" opacity="0.15"/>
           <circle cx="9" cy="24" r="2" fill="#FFF59D"/>
           <circle cx="27" cy="24" r="2" fill="#FFF59D"/>
-          <!-- 바퀴/범퍼 디테일 -->
-          <rect x="13" y="25" width="10" height="2" rx="1" fill="#ffffff" opacity="0.8"/>
+          <rect x="13" y="25" width="10" height="2" rx="1" fill="#ffffff" opacity="0.85"/>
         </svg>
       `;
     }
 
-    // 부드러운 주행 애니메이션 보간 적용된 버스 위치 갱신
+    // 실시간 버스 전체 차량 정상 표출
     async function updateVehicles() {
       let totalCount = 0;
-      const currentActiveKeys = new Set();
+      busGroup.clearLayers();
 
       for (const routeId of activeRouteIds) {
         const cfg = OFFICIAL_ROUTES.find(r => r.id === routeId);
@@ -420,15 +412,14 @@
           const res = await fetch(`/api/bus/positions?routeId=${routeId}`);
           const data = await res.json();
 
-          if (data.status === 'success' && data.vehicles) {
+          if (data.status === 'success' && data.vehicles && data.vehicles.length > 0) {
             totalCount += data.vehicles.length;
             const stations = stationCache[routeId] || [];
             const originCoord = stations.length > 0 ? [stations[0].lat, stations[0].lng] : [36.335, 127.458];
             const destCoord = stations.length > 1 ? [stations[Math.floor(stations.length/2)].lat, stations[Math.floor(stations.length/2)].lng] : [36.354, 127.375];
 
-            data.vehicles.forEach(bus => {
-              const busKey = `${routeId}_${bus.plateNo}`;
-              currentActiveKeys.add(busKey);
+            data.vehicles.forEach((bus, idx) => {
+              const busKey = `${routeId}_${bus.plateNo || idx}`;
               let isUp = true;
 
               if (lastBusPositions[busKey]) {
@@ -451,49 +442,35 @@
               const markerBg = getRouteColor(cfg.name, cfg.type, !isUp);
               const targetDest = isUp ? cfg.dest : cfg.origin;
 
-              // 마커가 이미 있으면 좌표를 부드럽게 transition 이동, 없으면 새로 생성
-              if (busMarkerInstances[busKey]) {
-                const existingMarker = busMarkerInstances[busKey];
-                // Leaflet 내장 보간 이동
-                existingMarker.setLatLng(snapped);
-              } else {
-                const busIcon = L.divIcon({
-                  className: '',
-                  html: `
-                    <div class="bus-vehicle-container">
-                      ${createBusSvg(markerBg)}
-                      <div class="bus-number-text">${cfg.name}</div>
-                    </div>
-                  `,
-                  iconSize: [0, 0]
-                });
+              const busIcon = L.divIcon({
+                className: '',
+                html: `
+                  <div class="bus-vehicle-container">
+                    ${createBusSvg(markerBg)}
+                    <div class="bus-number-text">${cfg.name}</div>
+                  </div>
+                `,
+                iconSize: [0, 0]
+              });
 
-                const newMarker = L.marker(snapped, { icon: busIcon })
-                  .bindPopup(`
-                    <div style="font-size:12px; line-height:1.5;">
-                      <b style="font-size:13px; color:${markerBg};">${cfg.name}번 버스</b><br>
-                      <b>방면:</b> ${targetDest} (${isUp ? '상행' : '하행'})<br>
-                      <b>차량번호:</b> ${bus.plateNo}<br>
-                      <b>현재 통과:</b> ${bus.stopSeq}번째 정류소<br>
-                      <b>갱신:</b> ${new Date(bus.updatedAt).toLocaleTimeString()}
-                    </div>
-                  `);
+              const marker = L.marker(snapped, { icon: busIcon })
+                .bindPopup(`
+                  <div style="font-size:12px; line-height:1.5;">
+                    <b style="font-size:13px; color:${markerBg};">${cfg.name}번 버스</b><br>
+                    <b>행선지:</b> ${targetDest} 방면 (${isUp ? '상행' : '하행'})<br>
+                    <b>차량번호:</b> ${bus.plateNo}<br>
+                    <b>정류소 순번:</b> ${bus.stopSeq}번째 통과 중<br>
+                    <b>수신 시각:</b> ${new Date(bus.updatedAt).toLocaleTimeString()}
+                  </div>
+                `);
 
-                busGroup.addLayer(newMarker);
-                busMarkerInstances[busKey] = newMarker;
-              }
+              busGroup.addLayer(marker);
             });
           }
-        } catch(e) {}
-      }
-
-      // 더 이상 운행하지 않는 버스 마커는 부드럽게 제거
-      Object.keys(busMarkerInstances).forEach(key => {
-        if (!currentActiveKeys.has(key)) {
-          busGroup.removeLayer(busMarkerInstances[key]);
-          delete busMarkerInstances[key];
+        } catch(e) {
+          console.error(e);
         }
-      });
+      }
 
       document.getElementById('vehicleCountLabel').textContent = `운행 차량: 총 ${totalCount}대`;
     }
@@ -506,12 +483,12 @@
       }
     }
 
-    // 1초 카운트다운 인터벌
+    // 1초 카운트다운 타이머
     setInterval(() => {
       countdown--;
       if (countdown <= 0) {
         countdown = 15;
-        document.getElementById('countdownLabel').textContent = '● 주행 갱신 중...';
+        document.getElementById('countdownLabel').textContent = '● 갱신 중...';
         updateVehicles().then(() => {
           document.getElementById('countdownLabel').textContent = `● 15초 후 갱신`;
         });
