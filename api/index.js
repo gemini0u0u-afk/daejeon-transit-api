@@ -10,16 +10,16 @@ app.use(express.json());
 const parser = new xml2js.Parser({ explicitArray: false, trim: true });
 
 app.get('/api/bus/positions', async (req, res) => {
-  const routeId = req.query.routeId || '30300001'; // 급행1번
+  const routeId = req.query.routeId || '30300001'; // 급행1번 기본값
   const serviceKey = process.env.PUBLIC_SERVICE_KEY;
 
   if (!serviceKey) {
     return res.status(500).json({ status: 'error', message: 'PUBLIC_SERVICE_KEY 환경변수가 없습니다.' });
   }
 
-  // 공공데이터포털 공식 단일 엔드포인트
   const rawKey = serviceKey.trim();
-  const requestUrl = `http://apis.data.go.kr/6300000/busposinfo/getBusposbyRouteid?serviceKey=${rawKey}&busRouteId=${routeId}`;
+  // 공공데이터포털 대전 버스위치정보 표준 REST 게이트웨이
+  const requestUrl = `http://apis.data.go.kr/6300000/openapi/service/BusPosService/getBusPosByRtid?serviceKey=${rawKey}&busRouteId=${routeId}`;
 
   try {
     const response = await axios.get(requestUrl, { timeout: 10000 });
@@ -30,7 +30,7 @@ app.get('/api/bus/positions', async (req, res) => {
         return res.status(500).json({ status: 'error', message: 'XML 파싱 실패', raw: xmlData });
       }
 
-      // 공공데이터포털 공통 에러 응답
+      // 공공데이터포털 공통 에러 응답 체크
       const cmmHeader = result?.OpenAPI_ServiceResponse?.cmmMsgHeader;
       if (cmmHeader) {
         return res.json({
@@ -41,7 +41,7 @@ app.get('/api/bus/positions', async (req, res) => {
         });
       }
 
-      // 대전시 헤더 확인
+      // 대전 버스 응답 체크
       const msgHeader = result?.ServiceResult?.msgHeader;
       if (msgHeader && msgHeader.headerCd !== '0') {
         return res.json({
