@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>대전 실시간 버스 관제 & 정밀 도로축 노선도</title>
+  <title>대전 실시간 버스 관제 시스템</title>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -14,112 +14,49 @@
     #map { width: 100%; height: 100%; }
 
     .control-panel {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      z-index: 1000;
-      background: rgba(255, 255, 255, 0.96);
-      padding: 16px 18px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
-      backdrop-filter: blur(8px);
-      width: 320px;
-      max-height: 90vh;
-      display: flex;
-      flex-direction: column;
+      position: absolute; top: 16px; left: 16px; z-index: 1000;
+      background: rgba(255, 255, 255, 0.96); padding: 16px 18px; border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.18); backdrop-filter: blur(8px);
+      width: 320px; max-height: 90vh; display: flex; flex-direction: column;
     }
     .panel-title { font-size: 16px; font-weight: 800; color: #111; margin-bottom: 2px; }
     .panel-desc { font-size: 11px; color: #666; margin-bottom: 10px; }
 
     .summary-box {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #f1f3f5;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 10px;
+      display: flex; justify-content: space-between; align-items: center;
+      background: #f1f3f5; padding: 6px 10px; border-radius: 6px;
+      font-size: 12px; font-weight: 600; margin-bottom: 10px;
     }
 
     .route-list-wrap {
-      overflow-y: auto;
-      max-height: 200px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      padding-right: 4px;
-      margin-bottom: 10px;
+      overflow-y: auto; max-height: 220px; display: flex; flex-direction: column;
+      gap: 6px; padding-right: 4px; margin-bottom: 10px;
     }
     .route-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 10px;
-      border-radius: 6px;
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      font-size: 12px;
-      cursor: pointer;
-      user-select: none;
+      display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px;
+      background: #f8f9fa; border: 1px solid #e9ecef; font-size: 12px; cursor: pointer;
     }
     .route-item:hover { background: #e7f5ff; }
     .route-item input { accent-color: #1a73e8; cursor: pointer; }
-    .route-tag {
-      padding: 2px 6px;
-      font-size: 10px;
-      font-weight: bold;
-      color: #fff;
-      border-radius: 10px;
-    }
+    .route-tag { padding: 2px 6px; font-size: 10px; font-weight: bold; color: #fff; border-radius: 10px; }
 
-    .legend-box {
-      border-top: 1px solid #eee;
-      padding-top: 8px;
-      font-size: 11px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      color: #555;
-    }
+    .legend-box { border-top: 1px solid #eee; padding-top: 8px; font-size: 11px; display: flex; flex-direction: column; gap: 4px; color: #555; }
     .legend-row { display: flex; align-items: center; gap: 8px; }
     .legend-line { width: 18px; height: 4px; border-radius: 2px; }
     .legend-dashed { width: 18px; height: 0; border-top: 3px dashed #00acc1; }
 
-    /* 정류장 핀 */
     .station-pin {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      border: 2px solid #ffffff;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.4);
-      cursor: pointer;
-      transform: translate(-50%, -50%);
+      width: 11px; height: 11px; border-radius: 50%; border: 2px solid #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4); cursor: pointer; transform: translate(-50%, -50%);
     }
 
-    /* 실시간 버스 마커 */
     .bus-marker {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 4px 8px;
-      border-radius: 16px;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
-      border: 2px solid #fff;
-      white-space: nowrap;
-      cursor: pointer;
-      transform: translate(-50%, -50%);
+      display: inline-flex; align-items: center; gap: 4px; color: #fff;
+      font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 16px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35); border: 2px solid #fff;
+      white-space: nowrap; cursor: pointer; transform: translate(-50%, -50%);
     }
-    .bus-dir {
-      font-size: 9px;
-      padding: 1px 4px;
-      border-radius: 3px;
-      background: rgba(0,0,0,0.28);
-    }
+    .bus-dir { font-size: 9px; padding: 1px 4px; border-radius: 3px; background: rgba(0,0,0,0.28); }
 
     .arr-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11px; }
     .arr-table th, .arr-table td { padding: 4px 2px; text-align: left; border-bottom: 1px solid #eee; }
@@ -130,14 +67,14 @@
 
   <div class="control-panel">
     <div class="panel-title">대전 버스 실시간 관제</div>
-    <div class="panel-desc">대로변 정밀 도로축 연동 & 뒷골목 우회 차단</div>
+    <div class="panel-desc">공공데이터 자동 동기화 & 도로 밀착 보정</div>
 
     <div class="summary-box">
-      <span id="vehicle-count-label">운행 차량: 계산 중...</span>
+      <span id="vehicle-count-label">노선 목록 동기화 중...</span>
       <span style="color:#0ca678; font-size:10px;">● 15초 갱신</span>
     </div>
 
-    <div style="font-size:11px; font-weight:bold; color:#444; margin-bottom:4px;">관제 노선 선택 (중복 체크 가능)</div>
+    <div style="font-size:11px; font-weight:bold; color:#444; margin-bottom:4px;">관제 노선 선택 (중복 체크)</div>
     <div class="route-list-wrap" id="routeList"></div>
 
     <div class="legend-box">
@@ -159,7 +96,6 @@
   <div id="map"></div>
 
   <script>
-    // 줌 버튼 우측 상단 배치
     const map = L.map('map', { zoomControl: false }).setView([36.3504, 127.3845], 12);
     L.control.zoom({ position: 'topright' }).addTo(map);
 
@@ -172,24 +108,52 @@
     const stationGroup = L.layerGroup().addTo(map);
     const busGroup = L.layerGroup().addTo(map);
 
-    const ROUTES = [
-      { id: '30300072', name: '605', type: 'trunk', color: '#1a73e8', downColor: '#00acc1', desc: '대전대동문 ↔ 갈마아파트', originName: '대전대동문', destName: '갈마아파트' },
-      { id: '30300001', name: '급행1', type: 'express', color: '#d9251b', downColor: '#ff7043', desc: '원내동 ↔ 신안동', originName: '원내동', destName: '신안동' },
-      { id: '30300002', name: '급행2', type: 'express', color: '#d9251b', downColor: '#ff7043', desc: '봉산동 ↔ 옥계동', originName: '봉산동', destName: '옥계동' },
-      { id: '30300003', name: '급행3', type: 'express', color: '#d9251b', downColor: '#ff7043', desc: '원내동 ↔ 정부청사', originName: '원내동', destName: '정부청사' },
-      { id: '30300083', name: '703', type: 'trunk', color: '#1a73e8', downColor: '#00acc1', desc: '신탄진 ↔ 정림동', originName: '신탄진', destName: '정림동' },
-      { id: '30300057', name: '213', type: 'branch', color: '#2b8a3e', downColor: '#74b816', desc: '원내동 ↔ 대한통운', originName: '원내동', destName: '대한통운' },
-      { id: '30300037', name: '102', type: 'trunk', color: '#1a73e8', downColor: '#00acc1', desc: '수통골 ↔ 대전역', originName: '수통골', destName: '대전역' },
-      { id: '30300040', name: '105', type: 'trunk', color: '#1a73e8', downColor: '#00acc1', desc: '충대농대 ↔ 판암지구', originName: '충대농대', destName: '판암지구' },
-      { id: '30300052', name: '201', type: 'trunk', color: '#1a73e8', downColor: '#00acc1', desc: '원내동 ↔ 대전역동광장', originName: '원내동', destName: '대전역동광장' },
-      { id: '30300067', name: '301', type: 'trunk', color: '#1a73e8', downColor: '#00acc1', desc: '봉산동 ↔ 오월드', originName: '봉산동', destName: '오월드' }
+    // 대전 주요 기본 노선 풀 (자동 검증 백업용)
+    let ROUTES = [
+      { id: '30300072', name: '605', type: 'trunk', color: '#1a73e8', downColor: '#00acc1', desc: '대전대동문 ↔ 갈마아파트', originName: '대전대동문', destName: '갈마아파트' }
     ];
 
     const activeRouteIds = new Set(['30300072']);
     const stationCache = {};
+    const routeLineSegments = {}; // 도로 스냅용 선분 캐시
     const lastBusPositions = {};
 
-    function initUI() {
+    // 1. 서버에서 공공데이터 정규 노선 전체 목록 가져오기
+    async function loadMasterRoutes() {
+      try {
+        const res = await fetch('/api/bus/routes');
+        const data = await res.json();
+        if (data.status === 'success' && data.routes?.length > 0) {
+          // 관심 노선들(급행1~3, 102, 105, 201, 213, 301, 605, 703 등) 우선 정렬
+          const priority = ['605', '급행1', '급행2', '급행3', '703', '213', '102', '105', '201', '301'];
+          const matched = [];
+
+          priority.forEach(pName => {
+            const found = data.routes.find(r => r.name === pName);
+            if (found) {
+              matched.push({
+                id: found.id,
+                name: found.name,
+                type: found.type,
+                color: found.type === 'express' ? '#d9251b' : (found.type === 'branch' ? '#2b8a3e' : '#1a73e8'),
+                downColor: found.type === 'express' ? '#ff7043' : (found.type === 'branch' ? '#74b816' : '#00acc1'),
+                desc: found.desc,
+                originName: found.origin,
+                destName: found.dest
+              });
+            }
+          });
+
+          if (matched.length > 0) ROUTES = matched;
+        }
+      } catch (e) {
+        console.warn('마스터 노선 조회 실패, 기본 노선 사용:', e);
+      }
+      renderUI();
+      refresh(true);
+    }
+
+    function renderUI() {
       const container = document.getElementById('routeList');
       container.innerHTML = '';
       ROUTES.forEach(r => {
@@ -210,26 +174,42 @@
       refresh(true);
     }
 
-    // 뒷골목 우회를 100% 방지하고 대로축을 부드럽게 연결하는 스무딩 함수
-    function buildCleanCorridorPath(stations) {
-      if (stations.length < 2) return stations.map(s => [s.lat, s.lng]);
-      const coords = stations.map(s => [s.lat, s.lng]);
-      const result = [coords[0]];
+    // 2. 도로 선분 투영(Snap-to-Road): 버스 GPS를 가장 가까운 도로선 위로 보정
+    function snapToPolyline(lat, lng, routeId) {
+      const segments = routeLineSegments[routeId];
+      if (!segments || segments.length === 0) return [lat, lng];
 
-      for (let i = 0; i < coords.length - 1; i++) {
-        const p1 = coords[i];
-        const p2 = coords[i + 1];
+      let minDist = Infinity;
+      let snappedPoint = [lat, lng];
 
-        // 정류소 사이 중간 보간점 생성 (골목길 침투 차단)
-        const midLat = (p1[0] + p2[0]) / 2;
-        const midLng = (p1[1] + p2[1]) / 2;
-        result.push([midLat, midLng]);
-        result.push(p2);
+      for (let i = 0; i < segments.length - 1; i++) {
+        const p1 = segments[i];
+        const p2 = segments[i + 1];
+
+        const x = lng, y = lat;
+        const x1 = p1[1], y1 = p1[0];
+        const x2 = p2[1], y2 = p2[0];
+
+        const dx = x2 - x1, dy = y2 - y1;
+        if (dx === 0 && dy === 0) continue;
+
+        const t = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)));
+        const projLng = x1 + t * dx;
+        const projLat = y1 + t * dy;
+
+        const distSq = (x - projLng) * (x - projLng) + (y - projLat) * (y - projLat);
+        if (distSq < minDist) {
+          minDist = distSq;
+          snappedPoint = [projLat, projLng];
+        }
       }
-      return result;
+
+      // 오차가 80m 이내일 때만 도로에 스냅 (터무니없이 멀리 있는 경우 왜곡 방지)
+      if (minDist < 0.0000008) return snappedPoint;
+      return [lat, lng];
     }
 
-    // 노선 정류장 핀 및 대로축 경로 그리기
+    // 3. 노선 및 정류소 그리기
     async function drawRoutes() {
       lineGroup.clearLayers();
       stationGroup.clearLayers();
@@ -256,27 +236,21 @@
           const upSt = stations.slice(0, half + 1);
           const downSt = stations.slice(half);
 
-          // 골목길 우회가 완전히 배제된 깔끔한 대로 경로선
-          const cleanUpPath = buildCleanCorridorPath(upSt);
-          const cleanDownPath = buildCleanCorridorPath(downSt);
+          const upCoords = upSt.map(s => [s.lat, s.lng]);
+          const downCoords = downSt.map(s => [s.lat, s.lng]);
 
-          // 상행선 (실선)
-          L.polyline(cleanUpPath, {
-            color: cfg.color, weight: 5, opacity: 0.85, lineJoin: 'round'
-          }).addTo(lineGroup);
+          // 스냅용 도로선 저장
+          routeLineSegments[routeId] = [...upCoords, ...downCoords];
 
-          // 하행선 (점선)
-          L.polyline(cleanDownPath, {
-            color: cfg.downColor, weight: 4, dashArray: '7, 7', opacity: 0.9, lineJoin: 'round'
-          }).addTo(lineGroup);
+          L.polyline(upCoords, { color: cfg.color, weight: 5, opacity: 0.85, lineJoin: 'round' }).addTo(lineGroup);
+          L.polyline(downCoords, { color: cfg.downColor, weight: 4, dashArray: '7, 7', opacity: 0.9, lineJoin: 'round' }).addTo(lineGroup);
 
-          // 정류소 핀 생성 및 클릭 시 실시간 도착 정보 팝업
           const createPin = (s, isUp) => {
             const color = isUp ? cfg.color : cfg.downColor;
             const icon = L.divIcon({
               className: '',
               html: `<div class="station-pin" style="background:${color};"></div>`,
-              iconSize: [12, 12]
+              iconSize: [11, 11]
             });
 
             const marker = L.marker([s.lat, s.lng], { icon }).addTo(stationGroup);
@@ -323,7 +297,7 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
-    // 실시간 버스 이동 벡터 추적
+    // 4. 실시간 버스 위치 및 도로 밀착 보정 표출
     async function updateVehicles() {
       busGroup.clearLayers();
       let count = 0;
@@ -362,7 +336,10 @@
 
               lastBusPositions[busKey] = { lat: bus.lat, lng: bus.lng, isUp };
 
-              const dirLabel = isUp ? `▲ ${cfg.destName}행` : `▼ ${cfg.originName}행`;
+              // 도로 위 밀착 보정 좌표 계산
+              const snapped = snapToPolyline(bus.lat, bus.lng, routeId);
+
+              const dirLabel = isUp ? `▲ ${cfg.destName || '종점'}행` : `▼ ${cfg.originName || '기점'}행`;
               const color = isUp ? cfg.color : cfg.downColor;
 
               const icon = L.divIcon({
@@ -376,7 +353,7 @@
                 iconSize: [0, 0]
               });
 
-              L.marker([bus.lat, bus.lng], { icon })
+              L.marker(snapped, { icon })
                 .bindPopup(`
                   <div style="font-size:12px; line-height:1.5;">
                     <b style="font-size:13px; color:${cfg.color};">${cfg.name}번 (${dirLabel})</b><br>
@@ -403,8 +380,7 @@
       }
     }
 
-    initUI();
-    refresh(true);
+    loadMasterRoutes();
     setInterval(updateVehicles, 15000);
   </script>
 </body>
