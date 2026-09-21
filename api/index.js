@@ -33,7 +33,7 @@ const OFFICIAL_ROUTES = [
   { id: '30300104', name: '911', type: 'branch', origin: '충남대', dest: '대전컨벤션센터', desc: '충남대 ↔ DCC' }
 ];
 
-// 1. 노선 목록 API
+// 1. 노선 마스터 목록 API
 app.get('/api/bus/routes', (req, res) => {
   res.json({
     status: 'success',
@@ -49,7 +49,7 @@ app.get('/api/bus/routes', (req, res) => {
   });
 });
 
-// 2. 노선별 경유 정류소 목록 API (7자리 고유 식별자 BUS_STOP_ID 보장)
+// 2. 노선별 경유 정류소 목록 API
 app.get('/api/bus/stations', async (req, res) => {
   const routeId = req.query.routeId || '30300072';
   const serviceKey = (process.env.PUBLIC_SERVICE_KEY || '').trim();
@@ -111,7 +111,7 @@ app.get('/api/bus/positions', async (req, res) => {
       const list = Array.isArray(body.itemList) ? body.itemList : [body.itemList];
       const vehicles = list.map((item, idx) => ({
         busId: String(item.BUS_ID || item.busId || `BUS_${idx}`).trim(),
-        plateNo: item.CAR_REG_NO || '대전버스',
+        plateNo: String(item.CAR_REG_NO || item.plateNo || `대전${idx + 1}`).trim(),
         routeId,
         lat: parseFloat(item.GPS_LATI || 0),
         lng: parseFloat(item.GPS_LONG || 0),
@@ -126,7 +126,7 @@ app.get('/api/bus/positions', async (req, res) => {
   }
 });
 
-// 4. 정류소별 실시간 도착 예정 정보 API
+// 4. 정류소별 실시간 도착 예정 정보 API (이중 폴백 지원)
 app.get('/api/bus/arrivals', async (req, res) => {
   const stopId = (req.query.stopId || '').trim();
   const serviceKey = (process.env.PUBLIC_SERVICE_KEY || '').trim();
@@ -135,20 +135,32 @@ app.get('/api/bus/arrivals', async (req, res) => {
     return res.status(400).json({ status: 'error', message: '정류소 ID 및 인증키가 필요합니다.' });
   }
 
-  const url = `https://apis.data.go.kr/6300000/arrive/getArrInfoByStopID?serviceKey=${serviceKey}&BusStopID=${stopId}`;
+  // 1차: 7자리 BusStopID로 조회
+  let url = `https://apis.data.go.kr/6300000/arrive/getArrInfoByStopID?serviceKey=${serviceKey}&BusStopID=${stopId}`;
   try {
-    const response = await axios.get(url, { timeout: 8000 });
-    parser.parseString(response.data, (err, result) => {
-      if (err) return res.status(500).json({ status: 'error', message: 'XML 파싱 에러' });
+    let response = await axios.get(url, { timeout: 7000 });
+    let xmlData = response.data;
 
-      const body = result?.ServiceResult?.msgBody;
-      if (!body || !body.itemList) {
-        return res.json({ status: 'success', stopId, count: 0, arrivals: [] });
+    parser.parseString(xmlData, async (err, result) => {
+      let body = result?.ServiceResult?.msgBody;
+      let list = body?.itemList ? (Array.isArray(body.itemList) ? body.itemList : [body.itemList]) : [];
+
+      // 2차 Fallback: 만약 7자리 조회가 비어있으면 ARS-ID로 2차 조회 시도
+      if (list.length === 0 && stopId.length === 5) {
+        try {
+          const fallbackUrl = `https://apis.data.go.kr/6300000/arrive/getArrInfoByUid?serviceKey=${serviceKey}&arsId=${stopId}`;
+          const fallbackRes = await axios.get(fallbackUrl, { timeout: 6000 });
+          parser.parseString(fallbackRes.data, (fbErr, fbResult) => {
+            const fbBody = fbResult?.ServiceResult?.msgBody;
+            if (fbBody && fbBody.itemList) {
+              list = Array.isArray(fbBody.itemList) ? fbBody.itemList : [fbBody.itemList];
+            }
+          });
+        } catch (fbE) {}
       }
 
-      const list = Array.isArray(body.itemList) ? body.itemList : [body.itemList];
       const arrivals = list.map(item => {
-        const routeNm = item.ROUTE_NO || item.busRouteNm || item.ROUTE_CD || '노선';
+        const routeNm = item.ROUTE_NO || item.busRouteNm || item.ROUTE_CD || '버스';
         const minVal = item.EXTIME_MIN || item.predictTime1;
         const stopVal = item.STATUS_POS;
 
@@ -160,7 +172,12 @@ app.get('/api/bus/arrivals', async (req, res) => {
         };
       });
 
-      res.json({ status: 'success', stopId, count: arrivals.length, arrivals });
+      res.json({
+        status: 'success',
+        stopId,
+        count: arrivals.length,
+        arrivals
+      });
     });
   } catch (err) {
     res.status(502).json({ status: 'error', message: err.message });
