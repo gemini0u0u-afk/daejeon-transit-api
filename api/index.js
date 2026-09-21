@@ -7,7 +7,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 브라우저 및 Vercel 캐싱 차단 (항상 최신 실시간 데이터 보장)
+// 브라우저 및 Vercel 캐싱 원천 차단 (최신 실시간 정보 보장)
 app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.set('Pragma', 'no-cache');
@@ -18,7 +18,7 @@ app.use((req, res, next) => {
 const parser = new xml2js.Parser({ explicitArray: false, trim: true });
 const routeStationCache = {};
 
-// 대전 주요 공식 노선 풀
+// 대전 공식 주요 노선 풀
 const OFFICIAL_ROUTES = [
   { id: '30300072', name: '605', type: 'trunk', origin: '대전대동문', dest: '갈마아파트', desc: '대전대동문 ↔ 갈마아파트' },
   { id: '30300001', name: '1', type: 'express', origin: '원내동', dest: '신안동', desc: '원내동 ↔ 신안동' },
@@ -100,7 +100,7 @@ app.get('/api/bus/stations', async (req, res) => {
   }
 });
 
-// 3. 실시간 버스 주행 위치 API
+// 3. 실시간 버스 주행 위치 API (저상버스 LOW_BUS 판별 포함)
 app.get('/api/bus/positions', async (req, res) => {
   const routeId = req.query.routeId || '30300072';
   const serviceKey = (process.env.PUBLIC_SERVICE_KEY || '').trim();
@@ -122,15 +122,21 @@ app.get('/api/bus/positions', async (req, res) => {
       }
 
       const list = Array.isArray(body.itemList) ? body.itemList : [body.itemList];
-      const vehicles = list.map((item, idx) => ({
-        busId: String(item.BUS_ID || item.busId || `BUS_${idx}`).trim(),
-        plateNo: String(item.CAR_REG_NO || item.plateNo || `대전${idx + 1}`).trim(),
-        routeId,
-        lat: parseFloat(item.GPS_LATI || item.lat || 0),
-        lng: parseFloat(item.GPS_LONG || item.lng || 0),
-        stopSeq: parseInt(item.STATION_ORD || item.stopSeq || '0', 10),
-        updatedAt: new Date().toISOString()
-      })).filter(v => v.lat > 35.0 && v.lng > 126.0);
+      const vehicles = list.map((item, idx) => {
+        // 저상버스 판별 플래그 (공공데이터: BUS_TYPE=1 또는 LOW_BUS=1)
+        const isLowBus = (item.BUS_TYPE === '1' || item.LOW_BUS === '1' || item.busType === '1');
+
+        return {
+          busId: String(item.BUS_ID || item.busId || `BUS_${idx}`).trim(),
+          plateNo: String(item.CAR_REG_NO || item.plateNo || `대전${idx + 1}`).trim(),
+          routeId,
+          lat: parseFloat(item.GPS_LATI || item.lat || 0),
+          lng: parseFloat(item.GPS_LONG || item.lng || 0),
+          stopSeq: parseInt(item.STATION_ORD || item.stopSeq || '0', 10),
+          isLowBus: Boolean(isLowBus),
+          updatedAt: new Date().toISOString()
+        };
+      }).filter(v => v.lat > 35.0 && v.lng > 126.0);
 
       res.json({
         status: 'success',
@@ -145,7 +151,7 @@ app.get('/api/bus/positions', async (req, res) => {
   }
 });
 
-// 4. 정류소별 실시간 도착 예정 정보 API
+// 4. 정류소별 실시간 도착 예정 정보 API (저상버스 도착 안내 태그 포함)
 app.get('/api/bus/arrivals', async (req, res) => {
   const stopId = (req.query.stopId || '').trim();
   const serviceKey = (process.env.PUBLIC_SERVICE_KEY || '').trim();
@@ -178,12 +184,15 @@ app.get('/api/bus/arrivals', async (req, res) => {
         const routeNm = item.ROUTE_NO || item.busRouteNm || item.ROUTE_CD || '버스';
         const minVal = item.EXTIME_MIN || item.predictTime1;
         const stopVal = item.STATUS_POS;
+        const isLow = (item.BUS_TYPE === '1' || item.LOW_BUS === '1');
 
         return {
           routeName: String(routeNm),
           dest: item.DESTINATION || item.destNm || '',
           remainMin: minVal ? `${minVal}분` : '곧 도착',
-          remainStop: stopVal ? `${stopVal}번째 전` : '진입 중'
+          remainMinNum: parseInt(minVal || '0', 10),
+          remainStop: stopVal ? `${stopVal}번째 전` : '진입 중',
+          isLowBus: Boolean(isLow)
         };
       });
 
