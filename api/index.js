@@ -10,82 +10,92 @@ app.use(express.json());
 const parser = new xml2js.Parser({ explicitArray: false, trim: true });
 
 app.get('/api/bus/positions', async (req, res) => {
-  const busRouteId = req.query.routeId || '30300001'; // 급행1번
+  const routeId = req.query.routeId || '30300001'; // 급행1번 기본값
   const serviceKey = process.env.PUBLIC_SERVICE_KEY;
-  
-  // 공공데이터포털 표준 통합 게이트웨이 엔드포인트
-  const url = 'http://apis.data.go.kr/1613000/BusLcInfoInqireService/getRouteAcctoBusLcList';
+
+  if (!serviceKey) {
+    return res.status(500).json({ status: 'error', message: 'Vercel 환경변수에 PUBLIC_SERVICE_KEY가 없습니다.' });
+  }
+
+  // axios가 인증키 안의 특수문자를 임의로 변형하지 못하도록 URL 직결 구성
+  const rawKey = serviceKey.trim();
+  const requestUrl = `http://apis.data.go.kr/1613000/BusLcInfoInqireService/getRouteAcctoBusLcList?serviceKey=${rawKey}&cityCode=25&routeId=DJB${routeId}&_type=json`;
 
   try {
-    const response = await axios.get(url, {
-      params: {
-        serviceKey: serviceKey,
-        cityCode: '25',        // 대전광역시 도시코드
-        routeId: 'DJB' + busRouteId, // 표준 대전 노선코드 규격
-        _type: 'json'          // JSON 직접 응답 요청
-      },
-      timeout: 10000
-    });
-
+    const response = await axios.get(requestUrl, { timeout: 10000 });
     const data = response.data;
-    
-    // JSON 응답 처리
+
+    // 1. JSON 형식 응답 처리
     if (data?.response?.header?.resultCode === '00') {
       const items = data.response.body?.items?.item || [];
-      const rawList = Array.isArray(items) ? items : [items];
+      const rawList = Array.isArray(items) ? items : (items ? [items] : []);
 
-      const formattedVehicles = rawList.map(item => ({
+      const vehicles = rawList.map(item => ({
         busId: item.vehicleno || item.nodeid,
         plateNo: item.vehicleno || '대전버스',
-        routeId: busRouteId,
+        routeId: routeId,
         lat: parseFloat(item.gpslati || 0),
         lng: parseFloat(item.gpslong || 0),
         stopSeq: item.nodeord,
         updatedAt: new Date().toISOString()
-      })).filter(v => v.lat > 36.0 && v.lng > 127.0);
+      })).filter(v => v.lat > 35.0 && v.lng > 126.0);
 
       return res.json({
         status: 'success',
-        routeId: busRouteId,
-        count: formattedVehicles.length,
-        vehicles: formattedVehicles
+        routeId: routeId,
+        count: vehicles.length,
+        vehicles: vehicles
       });
     }
 
-    // 만약 XML로 왔을 경우의 대비 파싱
+    // 2. XML 형식 응답 처리 (포털 설정에 따라 XML로 올 경우)
     if (typeof data === 'string') {
-      parser.parseString(data, (err, result) => {
+      return parser.parseString(data, (err, parsed) => {
         if (err) return res.status(500).json({ status: 'error', raw: data });
-        const body = result?.response?.body?.items?.item || [];
-        const rawList = Array.isArray(body) ? body : [body];
         
-        const formattedVehicles = rawList.map(item => ({
+        const resHeader = parsed?.response?.header;
+        if (resHeader?.resultCode !== '00') {
+          return res.json({ 
+            status: 'fail', 
+            code: resHeader?.resultCode, 
+            message: resHeader?.resultMsg,
+            tip: 'Decoding 키 대신 Encoding 키를 Vercel 환경변수에 입력해 보세요.'
+          });
+        }
+
+        const items = parsed?.response?.body?.items?.item || [];
+        const rawList = Array.isArray(items) ? items : (items ? [items] : []);
+
+        const vehicles = rawList.map(item => ({
           busId: item.vehicleno,
           plateNo: item.vehicleno,
-          routeId: busRouteId,
+          routeId: routeId,
           lat: parseFloat(item.gpslati || 0),
           lng: parseFloat(item.gpslong || 0),
           stopSeq: item.nodeord,
           updatedAt: new Date().toISOString()
-        })).filter(v => v.lat > 36.0 && v.lng > 127.0);
+        })).filter(v => v.lat > 35.0 && v.lng > 126.0);
 
         return res.json({
           status: 'success',
-          routeId: busRouteId,
-          count: formattedVehicles.length,
-          vehicles: formattedVehicles
+          routeId: routeId,
+          count: vehicles.length,
+          vehicles: vehicles
         });
       });
-      return;
     }
 
-    return res.json({
-      status: 'fail',
-      header: data?.response?.header || '알 수 없는 응답 형식'
-    });
+    return res.json({ status: 'fail', rawResponse: data });
 
   } catch (error) {
-    res.status(502).json({ status: 'error', message: error.message });
+    // 403 등 세부 에러 본문 추출
+    const errorData = error.response ? error.response.data : null;
+    res.status(502).json({
+      status: 'error',
+      statusCode: error.response?.status,
+      detail: errorData || error.message,
+      tip: '만약 403이 지속되면 Vercel 환경변수의 키를 Encoding 키로 바꿔보세요.'
+    });
   }
 });
 
