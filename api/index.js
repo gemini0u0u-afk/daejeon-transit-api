@@ -7,7 +7,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 브라우저 및 Vercel 캐싱 차단
+// 브라우저 및 Vercel 캐싱 차단 (실시간 최신 데이터 보장)
 app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.set('Pragma', 'no-cache');
